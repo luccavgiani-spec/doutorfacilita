@@ -1,0 +1,8 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "cd doutorfacilita && npm run build",
+  "devCommand": "cd doutorfacilita && npm run dev",
+  "installCommand": "cd doutorfacilita && npm install",
+  "outputDirectory": "doutorfacilita/.next",
+  "framework": "nextjs"
+}

@@ -44,6 +44,8 @@ export function JoinConsultButton({ consultationId, variant }: Props) {
   const supabase = supabaseRef.current;
   const supabaseReady = !(supabase instanceof Error);
 
+  // Verificação inicial: cobre o caso onde o médico já chamou antes de o paciente
+  // abrir a página. Em useEffect separado pra simplicidade.
   useEffect(() => {
     if (!supabaseReady) {
       setStatus({
@@ -58,54 +60,66 @@ export function JoinConsultButton({ consultationId, variant }: Props) {
     }
 
     let cancelled = false;
-
-    // Narrowed: supabaseReady is true → supabase is the client.
     const sb = supabase as ReturnType<typeof createClient>;
 
-    // Initial fetch covers the case where the doctor already called
-    // before the patient opened this page.
     (async () => {
       const { data, error } = await sb
         .from("consultations")
         .select("doctor_called_at")
         .eq("id", consultationId)
         .maybeSingle();
-
       if (cancelled) return;
       if (error) {
+        console.error("[JoinConsultButton] initial check failed", error);
         setStatus({ kind: "error", message: error.message });
         return;
       }
-      if (data?.doctor_called_at) {
-        setStatus({ kind: "ready" });
-      } else {
-        setStatus({ kind: "waiting" });
-      }
+      // Só promove pra ready/waiting se ainda estamos em checking — evita
+      // sobrescrever um "ready" que veio do Realtime entre o SELECT e o setState.
+      setStatus((prev) => {
+        if (prev.kind !== "checking") return prev;
+        return data?.doctor_called_at ? { kind: "ready" } : { kind: "waiting" };
+      });
     })();
-
-    // Realtime: flip to "ready" when doctor_called_at lands.
-    const channel = sb
-      .channel(`consultation:${consultationId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "consultations",
-          filter: `id=eq.${consultationId}`,
-        },
-        (payload) => {
-          const newRow = payload.new as { doctor_called_at?: string | null };
-          const oldRow = payload.old as { doctor_called_at?: string | null };
-          if (newRow?.doctor_called_at && !oldRow?.doctor_called_at) {
-            setStatus({ kind: "ready" });
-          }
-        }
-      )
-      .subscribe();
 
     return () => {
       cancelled = true;
+    };
+  }, [consultationId, supabase, supabaseReady]);
+
+  // Realtime: registra .on() ANTES de .subscribe() (Supabase Realtime v2).
+  useEffect(() => {
+    if (!supabaseReady || !consultationId) return;
+    const sb = supabase as ReturnType<typeof createClient>;
+
+    const channel = sb.channel(`consultation:${consultationId}`);
+
+    channel.on(
+      "postgres_changes",
+      {
+        event: "UPDATE",
+        schema: "public",
+        table: "consultations",
+        filter: `id=eq.${consultationId}`,
+      },
+      (payload) => {
+        const newRow = payload.new as { doctor_called_at?: string | null };
+        const oldRow = payload.old as { doctor_called_at?: string | null };
+        if (newRow?.doctor_called_at && !oldRow?.doctor_called_at) {
+          setStatus({ kind: "ready" });
+        }
+      }
+    );
+
+    channel.subscribe((subStatus) => {
+      if (subStatus === "SUBSCRIBED") {
+        console.log("[JoinConsultButton] Realtime subscribed");
+      } else if (subStatus === "CHANNEL_ERROR") {
+        console.error("[JoinConsultButton] Realtime channel error");
+      }
+    });
+
+    return () => {
       sb.removeChannel(channel);
     };
   }, [consultationId, supabase, supabaseReady]);
@@ -123,7 +137,6 @@ export function JoinConsultButton({ consultationId, variant }: Props) {
       return;
     }
     console.log("[get_patient_token] sucesso:", data);
-    // Mantém em "ready" pra permitir reentrar; render de vídeo virá na próxima fase.
     setStatus({ kind: "ready" });
   }
 

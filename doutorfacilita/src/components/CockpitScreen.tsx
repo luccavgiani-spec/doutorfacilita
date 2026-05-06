@@ -137,12 +137,12 @@ export default function CockpitScreen({ consultationId }: { consultationId?: str
     
               <div className="chart-section">
                 <div className="chart-section-label">Queixa principal</div>
-                <textarea className="chart-textarea">Dor de garganta forte há 3 dias, febre baixa (37,8°C), dificuldade para engolir. Nega tosse e coriza.</textarea>
+                <textarea className="chart-textarea" defaultValue="Dor de garganta forte há 3 dias, febre baixa (37,8°C), dificuldade para engolir. Nega tosse e coriza." />
               </div>
     
               <div className="chart-section">
                 <div className="chart-section-label">Evolução / exame físico</div>
-                <textarea className="chart-textarea tall">Ao exame (vídeo): orofaringe hiperemiada, amígdalas aumentadas com pontos esbranquiçados sugestivos de amigdalite bacteriana. Paciente em bom estado geral, consciente e orientada. Nega comorbidades prévias ou medicação contínua.</textarea>
+                <textarea className="chart-textarea tall" defaultValue="Ao exame (vídeo): orofaringe hiperemiada, amígdalas aumentadas com pontos esbranquiçados sugestivos de amigdalite bacteriana. Paciente em bom estado geral, consciente e orientada. Nega comorbidades prévias ou medicação contínua." />
               </div>
     
               <div className="chart-section">
@@ -161,7 +161,7 @@ export default function CockpitScreen({ consultationId }: { consultationId?: str
     
               <div className="chart-section">
                 <div className="chart-section-label">Conduta</div>
-                <textarea className="chart-textarea"></textarea>
+                <textarea className="chart-textarea" defaultValue="" />
               </div>
             </div>
           </div>
