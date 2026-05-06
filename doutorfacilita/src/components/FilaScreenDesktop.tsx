@@ -1,10 +1,10 @@
-import Link from "next/link";
+import { JoinConsultButton } from "@/components/fila/JoinConsultButton";
 
 /**
  * Fila desktop (≥1024px). Card central com ring grande, info e checagem técnica.
  * Estilos com prefixo `fila-d-*` em globals.css (Seção 5).
  */
-export default function FilaScreenDesktop() {
+export default function FilaScreenDesktop({ consultationId }: { consultationId?: string }) {
   return (
     <div className="fila-d">
       <header className="fila-d-top">
@@ -65,10 +65,7 @@ export default function FilaScreenDesktop() {
 
           <div className="fila-d-actions">
             <button className="fila-d-cancel">Cancelar consulta</button>
-            <Link href="/consulta" className="fila-d-join">
-              Simular entrada na consulta
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
-            </Link>
+            <JoinConsultButton consultationId={consultationId} variant="desktop" />
           </div>
         </div>
 

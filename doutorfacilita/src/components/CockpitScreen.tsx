@@ -1,9 +1,11 @@
+import { CallNextButton } from "@/components/cockpit/CallNextButton";
+
 /**
  * Tela Cockpit — Cockpit do médico — desktop (rota /cockpit)
  * Convertida do protótipo telemed_v2.html mantendo classes legadas.
  * Estilos em src/app/globals.css.
  */
-export default function CockpitScreen() {
+export default function CockpitScreen({ consultationId }: { consultationId?: string }) {
   return (
     <>
     <div className="cockpit-desktop">
@@ -60,7 +62,7 @@ export default function CockpitScreen() {
               <div className="qc-time">~1 min</div>
             </div>
             <div className="queue-card-meta">58 anos · <b>pressão alta</b><br/>Aguardando há 9 min</div>
-            <button className="queue-card-btn">Chamar próximo</button>
+            <CallNextButton consultationId={consultationId} className="queue-card-btn" />
           </div>
           <div className="queue-card">
             <div className="queue-card-top">

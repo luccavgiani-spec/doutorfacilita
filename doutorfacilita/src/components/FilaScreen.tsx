@@ -1,11 +1,11 @@
-import Link from 'next/link';
+import { JoinConsultButton } from "@/components/fila/JoinConsultButton";
 
 /**
  * Tela Fila — Fila de espera do paciente (rota /fila)
  * Convertida do protótipo telemed_v2.html mantendo classes legadas.
  * Estilos em src/app/globals.css.
  */
-export default function FilaScreen() {
+export default function FilaScreen({ consultationId }: { consultationId?: string }) {
   return (
     <>
     <div className="mobile-frame-wrap">
@@ -133,10 +133,7 @@ export default function FilaScreen() {
     
               <div className="fila-m-bottom-bar">
                 <button className="fila-m-cancel">Cancelar</button>
-                <Link href="/consulta" className="fila-m-join">
-                  Simular entrada
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
-                </Link>
+                <JoinConsultButton consultationId={consultationId} variant="mobile" />
               </div>
             </div>
           </div>
