@@ -1,0 +1,283 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ═══════════════════════════════════════════════════════════════
+   DESIGN TOKENS — Doutor Facilita (nó telemed)
+   Paleta Google + DM Sans + Caveat
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Cores primárias (paleta Google) */
+  --blue: #4285F4;
+  --red: #EA4335;
+  --yellow: #FBBC04;
+  --green: #34A853;
+  --blue-l: #e8f0fe;
+  --red-l: #fce8e6;
+  --yellow-l: #fef9e3;
+  --green-l: #e6f4ea;
+  --blue-d: #1a73e8;
+  --green-d: #2d8a45;
+
+  /* Neutros */
+  --dark: #1a1a1a;
+  --mid: #5f6368;
+  --light: #f8f9fa;
+  --white: #fff;
+  --border: #e3e6ea;
+  --bg: #f4f6f9;
+  --bg2: #ffffff;
+  --bg3: #f0f2f5;
+  --bg4: #e8eaed;
+  --hborder: rgba(0, 0, 0, 0.08);
+  --hborder2: rgba(0, 0, 0, 0.14);
+  --txt: #1a1a1a;
+  --txt2: #5f6368;
+  --txt3: #9aa0a6;
+
+  /* Mevo (parceiro) */
+  --mevo-purple: #5a2a82;
+  --mevo-purple-l: #f3ecfb;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   BASE
+   ═══════════════════════════════════════════════════════════════ */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-dm-sans), "Helvetica Neue", system-ui, sans-serif;
+  font-size: 14px;
+  color: var(--txt);
+  background: #d6dae0;
+  -webkit-font-smoothing: antialiased;
+  overflow: auto;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   COMPONENTES BASE — bar4 (faixa colorida) e logo nó
+   ═══════════════════════════════════════════════════════════════ */
+
+.bar4 {
+  height: 3px;
+  display: flex;
+  width: 100%;
+}
+.bar4 span {
+  flex: 1;
+}
+.bar4 span:nth-child(1) {
+  background: var(--blue);
+}
+.bar4 span:nth-child(2) {
+  background: var(--red);
+}
+.bar4 span:nth-child(3) {
+  background: var(--yellow);
+}
+.bar4 span:nth-child(4) {
+  background: var(--green);
+}
+
+.logo-no {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--txt);
+  letter-spacing: -0.01em;
+}
+.logo-no .no-word {
+  font-family: var(--font-caveat), cursive;
+  font-size: 1.55em;
+  line-height: 0.8;
+  color: var(--blue);
+  font-weight: 700;
+}
+.logo-no .dots {
+  display: inline-flex;
+  gap: 3px;
+  margin-right: 7px;
+}
+.logo-no .dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.logo-no .dots span:nth-child(1) {
+  background: var(--blue);
+}
+.logo-no .dots span:nth-child(2) {
+  background: var(--red);
+}
+.logo-no .dots span:nth-child(3) {
+  background: var(--yellow);
+}
+.logo-no .dots span:nth-child(4) {
+  background: var(--green);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ANIMAÇÕES
+   ═══════════════════════════════════════════════════════════════ */
+
+@keyframes pulse {
+  0% {
+    transform: scale(0.8);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+}
+
+@keyframes pulse-sm {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Pulso usado no badge "X médicos online" */
+.pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--blue);
+  position: relative;
+}
+.pulse-dot::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 2px solid var(--blue);
+  animation: pulse 1.6s ease-out infinite;
+}
+
+/* Indicador "AO VIVO" pulsante */
+.live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: pulse-sm 1.6s infinite;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE FRAME — preview de celular no desktop
+   Usado nas páginas /, /fila e /consulta
+   ═══════════════════════════════════════════════════════════════ */
+
+.mobile-frame-wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 30px 16px 100px;
+  background: #d6dae0;
+}
+
+.mobile-frame {
+  width: 390px;
+  max-width: 100%;
+  background: white;
+  border-radius: 38px;
+  box-shadow: 0 20px 80px rgba(0, 0, 0, 0.15), 0 2px 8px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  position: relative;
+  border: 10px solid #18181a;
+  min-height: 820px;
+  display: flex;
+  flex-direction: column;
+}
+
+.mobile-frame::before {
+  content: "";
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 110px;
+  height: 26px;
+  background: #18181a;
+  border-radius: 0 0 16px 16px;
+  z-index: 10;
+}
+
+.mobile-status {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 24px 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--txt);
+  position: relative;
+  z-index: 5;
+}
+
+.mobile-status-icons {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.mobile-status-icons svg {
+  width: 14px;
+  height: 14px;
+}
+
+.mobile-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Em mobile real, esconde a moldura e usa fullscreen */
+@media (max-width: 768px) {
+  .mobile-frame-wrap {
+    padding: 0;
+    min-height: 100vh;
+  }
+  .mobile-frame {
+    width: 100%;
+    max-width: 100%;
+    border: 0;
+    border-radius: 0;
+    min-height: 100vh;
+    box-shadow: none;
+  }
+  .mobile-frame::before {
+    display: none;
+  }
+  .mobile-status {
+    display: none;
+  }
+}

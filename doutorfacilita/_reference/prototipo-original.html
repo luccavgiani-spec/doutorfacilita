@@ -1,0 +1,1664 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>nó telemed — protótipo v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Caveat:wght@700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --font:'DM Sans','Helvetica Neue',system-ui,sans-serif;
+  --font-accent:'Caveat',cursive;
+  --blue:#4285F4; --red:#EA4335; --yellow:#FBBC04; --green:#34A853;
+  --blue-l:#e8f0fe; --red-l:#fce8e6; --yellow-l:#fef9e3; --green-l:#e6f4ea;
+  --blue-d:#1a73e8; --green-d:#2d8a45;
+  --dark:#1a1a1a; --mid:#5f6368; --light:#f8f9fa; --white:#fff; --border:#e3e6ea;
+  --bg:#f4f6f9; --bg2:#ffffff; --bg3:#f0f2f5; --bg4:#e8eaed;
+  --hborder:rgba(0,0,0,0.08); --hborder2:rgba(0,0,0,0.14);
+  --txt:#1a1a1a; --txt2:#5f6368; --txt3:#9aa0a6;
+  --mevo-purple:#5a2a82;
+  --mevo-purple-l:#f3ecfb;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:var(--font);font-size:14px;color:var(--txt);background:#d6dae0;-webkit-font-smoothing:antialiased;overflow:auto}
+
+/* ═══════════════════════════════════════════════════════ */
+/* DEMO SHELL                                                */
+/* ═══════════════════════════════════════════════════════ */
+
+.demo-nav{
+  position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+  z-index:2000;background:var(--white);border:1px solid var(--hborder2);
+  border-radius:100px;padding:6px;display:flex;gap:4px;
+  box-shadow:0 8px 32px rgba(0,0,0,0.12),0 2px 8px rgba(0,0,0,0.06);
+}
+.demo-nav button{
+  font-family:var(--font);font-size:12px;font-weight:500;
+  border:none;background:transparent;color:var(--txt2);
+  padding:8px 14px;border-radius:100px;cursor:pointer;
+  display:flex;align-items:center;gap:6px;transition:all .15s;
+}
+.demo-nav button:hover{background:var(--bg3);color:var(--txt)}
+.demo-nav button.active{background:var(--blue);color:white}
+.demo-nav .dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.5}
+.demo-nav button.active .dot{opacity:1}
+.demo-nav .sep{width:1px;height:20px;background:var(--hborder);margin:0 4px;align-self:center}
+.demo-nav .grp-label{font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.08em;padding:0 6px;align-self:center;font-weight:600}
+
+.screen{display:none;min-height:100vh;width:100vw;animation:fade .3s ease}
+.screen.active{display:block}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+
+/* MOBILE FRAME — desktop preview com moldura de celular */
+.mobile-frame-wrap{
+  min-height:100vh;display:flex;align-items:flex-start;justify-content:center;
+  padding:30px 16px 100px;background:#d6dae0;
+}
+.mobile-frame{
+  width:390px;max-width:100%;background:white;border-radius:38px;
+  box-shadow:0 20px 80px rgba(0,0,0,.15),0 2px 8px rgba(0,0,0,.08);
+  overflow:hidden;position:relative;border:10px solid #18181a;
+  min-height:820px;display:flex;flex-direction:column;
+}
+.mobile-frame::before{
+  content:'';position:absolute;top:10px;left:50%;transform:translateX(-50%);
+  width:110px;height:26px;background:#18181a;border-radius:0 0 16px 16px;z-index:10;
+}
+.mobile-status{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:12px 24px 4px;font-size:12px;font-weight:600;color:var(--txt);
+  position:relative;z-index:5;
+}
+.mobile-status-icons{display:flex;gap:4px;align-items:center}
+.mobile-status-icons svg{width:14px;height:14px}
+.mobile-content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch}
+
+/* ═══════════════════════════════════════════════════════ */
+/* LOGO NÓ                                                   */
+/* ═══════════════════════════════════════════════════════ */
+.logo-no{display:inline-flex;align-items:baseline;gap:2px;font-weight:700;font-size:18px;color:var(--txt);letter-spacing:-.01em}
+.logo-no .no-word{font-family:var(--font-accent);font-size:1.55em;line-height:.8;color:var(--blue);font-weight:700}
+.logo-no .dots{display:inline-flex;gap:3px;margin-right:7px}
+.logo-no .dots span{width:6px;height:6px;border-radius:50%}
+.logo-no .dots span:nth-child(1){background:var(--blue)}
+.logo-no .dots span:nth-child(2){background:var(--red)}
+.logo-no .dots span:nth-child(3){background:var(--yellow)}
+.logo-no .dots span:nth-child(4){background:var(--green)}
+
+.bar4{height:3px;display:flex;width:100%}
+.bar4 span{flex:1}
+.bar4 span:nth-child(1){background:var(--blue)}
+.bar4 span:nth-child(2){background:var(--red)}
+.bar4 span:nth-child(3){background:var(--yellow)}
+.bar4 span:nth-child(4){background:var(--green)}
+
+/* ═══════════════════════════════════════════════════════ */
+/* TELA 1 — LP MOBILE                                        */
+/* ═══════════════════════════════════════════════════════ */
+
+.lp-m{padding-bottom:100px;background:#fff}
+
+.lp-m-nav{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 20px;background:#fff;border-bottom:1px solid var(--hborder);
+  position:sticky;top:0;z-index:10;
+}
+.lp-m-menu-btn{
+  width:36px;height:36px;border-radius:10px;background:var(--bg);
+  border:none;display:flex;align-items:center;justify-content:center;
+  color:var(--txt);cursor:pointer;
+}
+
+.lp-m-hero{padding:28px 24px 32px;background:linear-gradient(180deg,#fff 0%,#f4f8ff 100%);position:relative;overflow:hidden}
+.lp-m-hero::before{
+  content:'';position:absolute;top:-60px;right:-60px;width:240px;height:240px;
+  background:radial-gradient(circle,rgba(66,133,244,.12),transparent 70%);
+  border-radius:50%;pointer-events:none;
+}
+
+.lp-m-badge{
+  display:inline-flex;align-items:center;gap:7px;padding:6px 12px;
+  background:var(--blue-l);color:var(--blue);border-radius:100px;
+  font-size:12px;font-weight:600;margin-bottom:18px;
+}
+.lp-m-badge .pulse{width:6px;height:6px;border-radius:50%;background:var(--blue);position:relative}
+.lp-m-badge .pulse::after{
+  content:'';position:absolute;inset:-3px;border-radius:50%;border:2px solid var(--blue);
+  animation:pulse 1.6s ease-out infinite;
+}
+@keyframes pulse{0%{transform:scale(.8);opacity:1}100%{transform:scale(1.8);opacity:0}}
+
+.lp-m-h1{
+  font-size:32px;line-height:1.1;font-weight:700;letter-spacing:-.02em;
+  color:var(--txt);margin-bottom:14px;
+}
+.lp-m-h1 .accent{font-family:var(--font-accent);font-weight:700;color:var(--blue);font-size:1.25em;line-height:.9}
+
+.lp-m-sub{font-size:15px;color:var(--txt2);line-height:1.5;margin-bottom:24px}
+
+.lp-m-mock{
+  background:white;border-radius:16px;padding:16px;
+  box-shadow:0 12px 40px rgba(0,0,0,.1),0 2px 8px rgba(0,0,0,.04);
+  border:1px solid var(--hborder);margin-top:4px;
+}
+.lp-m-mock-doctor{
+  display:flex;align-items:center;gap:12px;padding:12px;
+  background:var(--blue-l);border-radius:12px;margin-bottom:10px;
+}
+.mock-av{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--blue),#6ba3f7);display:flex;align-items:center;justify-content:center;color:white;font-weight:600;font-size:14px;flex-shrink:0}
+.mock-info{flex:1;min-width:0}
+.mock-name{font-weight:600;font-size:13px;margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mock-spec{font-size:11px;color:var(--txt2)}
+.mock-live{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--green);font-weight:600;flex-shrink:0}
+.mock-live .ld{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse-sm 1.6s infinite}
+@keyframes pulse-sm{0%,100%{opacity:1}50%{opacity:.4}}
+
+.mock-q{
+  display:flex;align-items:center;gap:10px;padding:10px;
+  background:var(--bg3);border-radius:10px;margin-bottom:6px;
+}
+.mock-q.you{background:var(--green-l);border:1px dashed var(--green)}
+.mock-q-pos{width:24px;height:24px;border-radius:7px;background:white;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:11px;color:var(--txt2);flex-shrink:0}
+.mock-q.you .mock-q-pos{background:var(--green);color:white}
+.mock-q-txt{flex:1;font-size:12px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mock-q-txt b{color:var(--green);font-weight:600}
+.mock-q-time{font-size:11px;color:var(--txt2);flex-shrink:0}
+
+/* LP Benefits — stack vertical mobile */
+.lp-m-benefits{padding:32px 24px;background:var(--bg)}
+.lp-m-section-eyebrow{font-family:var(--font-accent);color:var(--blue);font-size:22px;display:block;margin-bottom:2px}
+.lp-m-section-title{font-size:26px;font-weight:700;letter-spacing:-.01em;line-height:1.15;margin-bottom:20px}
+
+.lp-m-benefit{
+  background:white;border-radius:14px;padding:18px;margin-bottom:10px;
+  display:flex;gap:14px;align-items:flex-start;border:1px solid var(--hborder);
+}
+.lp-m-benefit-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.lp-m-benefit:nth-child(2) .lp-m-benefit-icon{background:var(--blue-l);color:var(--blue)}
+.lp-m-benefit:nth-child(3) .lp-m-benefit-icon{background:var(--red-l);color:var(--red)}
+.lp-m-benefit:nth-child(4) .lp-m-benefit-icon{background:var(--yellow-l);color:#b38600}
+.lp-m-benefit:nth-child(5) .lp-m-benefit-icon{background:var(--green-l);color:var(--green)}
+.lp-m-benefit h3{font-size:15px;font-weight:600;margin-bottom:4px}
+.lp-m-benefit p{font-size:13px;color:var(--txt2);line-height:1.45}
+
+/* LP Steps mobile — vertical timeline */
+.lp-m-steps-wrap{padding:32px 24px;background:#fff}
+.lp-m-step{
+  position:relative;padding-left:56px;padding-bottom:20px;
+}
+.lp-m-step::before{
+  content:'';position:absolute;left:19px;top:40px;bottom:0;width:2px;
+  background:repeating-linear-gradient(180deg,var(--hborder2) 0,var(--hborder2) 4px,transparent 4px,transparent 10px);
+}
+.lp-m-step:last-child{padding-bottom:0}
+.lp-m-step:last-child::before{display:none}
+.lp-m-step-num{
+  position:absolute;left:0;top:0;width:40px;height:40px;border-radius:12px;
+  display:flex;align-items:center;justify-content:center;
+  font-weight:700;font-size:15px;color:white;
+}
+.lp-m-step:nth-child(1) .lp-m-step-num{background:var(--blue)}
+.lp-m-step:nth-child(2) .lp-m-step-num{background:var(--red)}
+.lp-m-step:nth-child(3) .lp-m-step-num{background:var(--yellow);color:var(--dark)}
+.lp-m-step:nth-child(4) .lp-m-step-num{background:var(--green)}
+.lp-m-step h4{font-size:16px;font-weight:600;margin-bottom:4px;padding-top:8px}
+.lp-m-step p{font-size:13px;color:var(--txt2);line-height:1.5}
+
+/* LP Pricing mobile — stack vertical */
+.lp-m-pricing{padding:32px 24px;background:var(--bg)}
+.lp-m-price-card{background:white;border-radius:16px;padding:24px;border:1px solid var(--hborder);margin-bottom:12px;position:relative}
+.lp-m-price-card.featured{border:2px solid var(--blue);box-shadow:0 12px 32px rgba(66,133,244,.12);margin-top:14px}
+.lp-m-price-card.featured::before{
+  content:'Mais popular';position:absolute;top:-12px;left:50%;transform:translateX(-50%);
+  background:var(--blue);color:white;padding:4px 14px;border-radius:100px;font-size:11px;font-weight:600;
+}
+.lp-m-price-card h4{font-size:16px;font-weight:600;margin-bottom:4px}
+.pcat{font-size:12px;color:var(--txt2);margin-bottom:14px}
+.lp-m-price-value{display:flex;align-items:baseline;gap:4px;margin-bottom:16px}
+.lp-m-price-value .big{font-size:36px;font-weight:700;letter-spacing:-.02em;color:var(--txt)}
+.lp-m-price-value .small{font-size:13px;color:var(--txt2)}
+.lp-m-price-features{list-style:none;margin-bottom:18px}
+.lp-m-price-features li{padding:6px 0;font-size:13px;display:flex;align-items:center;gap:8px;color:var(--txt)}
+.lp-m-price-features li svg{color:var(--green);flex-shrink:0}
+
+/* CTA fixo inferior — pattern mobile crítico */
+.lp-m-cta-fixed{
+  position:absolute;bottom:0;left:0;right:0;padding:12px 20px 16px;
+  background:white;border-top:1px solid var(--hborder);
+  box-shadow:0 -4px 16px rgba(0,0,0,.04);z-index:20;
+}
+.cta-fixed-price{
+  font-size:12px;color:var(--txt2);margin-bottom:8px;text-align:center;
+}
+.cta-fixed-price b{color:var(--txt);font-size:14px;font-weight:700}
+.lp-m-cta-primary{
+  width:100%;background:var(--blue);color:white;border:none;padding:14px 20px;
+  border-radius:100px;font-family:var(--font);font-weight:600;font-size:15px;
+  cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:8px;
+  box-shadow:0 4px 16px rgba(66,133,244,.3);
+}
+.lp-m-cta-primary:active{transform:translateY(1px);box-shadow:0 2px 8px rgba(66,133,244,.3)}
+
+.lp-m-trust-row{
+  display:flex;gap:10px;flex-wrap:wrap;margin-top:20px;
+}
+.lp-m-trust-pill{
+  display:flex;align-items:center;gap:6px;padding:6px 10px;
+  background:var(--bg);border:1px solid var(--hborder);border-radius:100px;
+  font-size:11px;color:var(--txt2);font-weight:500;
+}
+.lp-m-trust-pill svg{color:var(--green);flex-shrink:0}
+
+.lp-m-footer{background:var(--dark);color:#aaa;padding:28px 24px;text-align:center;font-size:11px;line-height:1.6}
+.lp-m-footer .logo-no{margin-bottom:10px;color:white}
+.lp-m-footer .logo-no .no-word{color:#8ab4f8}
+
+/* ═══════════════════════════════════════════════════════ */
+/* TELA 2 — FILA MOBILE                                      */
+/* ═══════════════════════════════════════════════════════ */
+
+.fila-m{background:linear-gradient(180deg,#fff 0%,#f4f8ff 100%);min-height:100%;display:flex;flex-direction:column;position:relative}
+
+.fila-m-top{
+  padding:14px 20px;display:flex;align-items:center;justify-content:space-between;
+  background:white;border-bottom:1px solid var(--hborder);
+}
+.fila-m-user{display:flex;align-items:center;gap:8px}
+.fila-m-user-av{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--green));display:flex;align-items:center;justify-content:center;color:white;font-weight:600;font-size:12px}
+.fila-m-user-info{font-size:11px;line-height:1.2}
+.fila-m-user-info b{font-size:12px;color:var(--txt);font-weight:600;display:block}
+
+.fila-m-status-label{font-size:11px;color:var(--txt2);font-weight:500;letter-spacing:.06em;text-transform:uppercase;text-align:center;margin-top:28px}
+.fila-m-accent{font-family:var(--font-accent);color:var(--blue);font-size:36px;line-height:.9;margin:4px 0 6px;font-weight:700;text-align:center}
+.fila-m-sub{font-size:13px;color:var(--txt2);text-align:center;padding:0 32px;margin-bottom:24px}
+
+.fila-m-ring-wrap{display:flex;justify-content:center;margin-bottom:24px}
+.fila-m-ring{
+  width:200px;height:200px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;flex-direction:column;
+  background:conic-gradient(from -90deg,var(--blue) 0deg,var(--blue) 95deg,var(--bg3) 95deg,var(--bg3) 360deg);
+  position:relative;box-shadow:0 12px 40px rgba(66,133,244,.15);
+}
+.fila-m-ring::before{
+  content:'';position:absolute;inset:14px;background:white;border-radius:50%;
+}
+.fila-m-ring-inner{position:relative;z-index:1;text-align:center}
+.fila-m-ring-num{font-size:72px;font-weight:700;letter-spacing:-.03em;line-height:1;color:var(--txt)}
+.fila-m-ring-label{font-size:11px;color:var(--txt2);margin-top:2px;font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+
+.fila-m-info-row{
+  display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 20px;margin-bottom:20px;
+}
+.fila-m-info-card{
+  background:white;padding:12px;border-radius:12px;border:1px solid var(--hborder);
+}
+.fim-ic-label{font-size:10px;color:var(--txt2);margin-bottom:2px;text-transform:uppercase;letter-spacing:.04em;font-weight:600}
+.fim-ic-value{font-size:16px;font-weight:700;color:var(--txt)}
+.fim-ic-value.small{font-size:13px}
+.fim-ic-value.g{color:var(--green)}
+
+.fila-m-progress{
+  margin:0 20px 20px;height:6px;background:var(--bg3);border-radius:100px;overflow:hidden;position:relative;
+}
+.fila-m-progress-fill{
+  height:100%;width:65%;border-radius:100px;
+  background:linear-gradient(90deg,var(--blue),var(--green));
+  position:relative;overflow:hidden;
+}
+.fila-m-progress-fill::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.5),transparent);
+  animation:shimmer 2s infinite;
+}
+@keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+
+.fila-m-section{
+  background:white;margin:0 20px 12px;padding:16px;border-radius:14px;border:1px solid var(--hborder);
+}
+.fila-m-section-title{
+  font-size:12px;font-weight:600;color:var(--txt2);text-transform:uppercase;
+  letter-spacing:.06em;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;
+}
+.fila-m-section-title .collapse-chev{color:var(--txt3);cursor:pointer}
+
+.tech-m-item{
+  display:flex;align-items:center;gap:10px;padding:8px 0;
+  border-bottom:1px solid var(--hborder);
+}
+.tech-m-item:last-child{border-bottom:none}
+.tech-m-ic{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:var(--green-l);color:var(--green);flex-shrink:0}
+.tech-m-info{flex:1;min-width:0}
+.tech-m-t{font-size:13px;font-weight:500;margin-bottom:1px}
+.tech-m-s{font-size:11px;color:var(--green)}
+
+/* Médicos em slider horizontal — pattern mobile */
+.fila-m-docs-slider{
+  display:flex;gap:8px;overflow-x:auto;padding:4px 20px 8px;margin:0 -20px;
+  scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;
+}
+.fila-m-docs-slider::-webkit-scrollbar{display:none}
+.fila-m-doc-card{
+  flex-shrink:0;min-width:180px;scroll-snap-align:start;
+  background:var(--bg);border-radius:12px;padding:12px;display:flex;align-items:center;gap:10px;
+}
+.fmd-av{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:600;font-size:13px;position:relative;flex-shrink:0}
+.fmd-av.b{background:linear-gradient(135deg,var(--blue),#6ba3f7)}
+.fmd-av.g{background:linear-gradient(135deg,var(--green),#5bc575)}
+.fmd-av.r{background:linear-gradient(135deg,var(--red),#f28b82)}
+.fmd-av .sd{position:absolute;bottom:-1px;right:-1px;width:10px;height:10px;border-radius:50%;background:var(--green);border:2px solid var(--bg)}
+.fmd-av .sd.busy{background:var(--yellow)}
+.fmd-info{flex:1;min-width:0}
+.fmd-name{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fmd-st{font-size:10px;color:var(--txt2)}
+.fmd-st.g{color:var(--green)}
+.fmd-st.y{color:#b38600}
+
+.fila-m-tip{
+  background:var(--blue-l);border-radius:12px;padding:12px 14px;margin:0 20px 16px;
+  display:flex;gap:10px;align-items:flex-start;
+}
+.fila-m-tip svg{color:var(--blue);flex-shrink:0;margin-top:1px}
+.fila-m-tip-text{font-size:12px;line-height:1.5;color:var(--txt)}
+.fila-m-tip-text b{color:var(--blue)}
+
+.fila-m-bottom-bar{
+  position:sticky;bottom:0;left:0;right:0;background:white;border-top:1px solid var(--hborder);
+  padding:12px 20px;display:flex;gap:10px;z-index:10;
+}
+.fila-m-cancel{
+  flex:0 0 auto;background:transparent;border:1px solid var(--hborder2);color:var(--txt2);
+  padding:12px 16px;border-radius:100px;font-family:var(--font);font-size:13px;cursor:pointer;
+}
+.fila-m-join{
+  flex:1;background:var(--blue);color:white;border:none;padding:12px;
+  border-radius:100px;font-family:var(--font);font-weight:600;font-size:14px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;
+  box-shadow:0 4px 16px rgba(66,133,244,.25);
+}
+
+/* ═══════════════════════════════════════════════════════ */
+/* TELA 3 — CONSULTA MOBILE (portrait)                       */
+/* ═══════════════════════════════════════════════════════ */
+
+.consulta-m{
+  background:#0a0c0e;min-height:100%;color:white;
+  display:flex;flex-direction:column;position:relative;
+}
+
+.cm-video-area{
+  flex:1;position:relative;min-height:500px;
+  background:radial-gradient(circle at 30% 40%,#1a2833 0,#0a0c0e 70%);
+  overflow:hidden;
+}
+.cm-doctor-big{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:140px;height:140px;border-radius:50%;
+  background:linear-gradient(135deg,var(--blue),#6ba3f7);
+  display:flex;align-items:center;justify-content:center;
+  color:white;font-weight:600;font-size:46px;
+  box-shadow:0 0 0 4px rgba(255,255,255,.08),0 20px 60px rgba(0,0,0,.5);
+}
+
+.cm-top-bar{
+  position:absolute;top:0;left:0;right:0;
+  padding:18px 20px;display:flex;align-items:center;justify-content:space-between;
+  background:linear-gradient(180deg,rgba(0,0,0,.5),transparent);
+  z-index:5;
+}
+.cm-live-pill{
+  display:flex;align-items:center;gap:6px;padding:4px 10px;
+  background:rgba(234,67,53,.15);border:1px solid rgba(234,67,53,.4);
+  color:#f28b82;border-radius:100px;font-size:11px;font-weight:600;
+  backdrop-filter:blur(10px);
+}
+.cm-live-pill .ld{width:5px;height:5px;border-radius:50%;background:#ea4335;animation:pulse-sm 1.2s infinite}
+
+.cm-timer{font-size:13px;color:white;font-weight:500;background:rgba(0,0,0,.4);padding:4px 12px;border-radius:100px;backdrop-filter:blur(10px)}
+
+.cm-self-video{
+  position:absolute;top:72px;right:16px;
+  width:92px;height:132px;border-radius:14px;
+  background:linear-gradient(135deg,#3c4043,#202124);
+  border:2px solid rgba(255,255,255,.08);
+  display:flex;align-items:center;justify-content:center;
+  color:#5f6368;font-size:10px;z-index:4;overflow:hidden;
+}
+.cm-self-label{position:absolute;bottom:4px;left:6px;right:6px;background:rgba(0,0,0,.6);color:white;font-size:9px;padding:2px 4px;border-radius:4px;text-align:center}
+
+.cm-doctor-info{
+  position:absolute;bottom:110px;left:50%;transform:translateX(-50%);
+  text-align:center;z-index:3;
+}
+.cm-doctor-name{font-size:17px;font-weight:600;margin-bottom:2px}
+.cm-doctor-spec{font-size:12px;color:#bdc1c6;margin-bottom:6px}
+.cm-doctor-crm{display:inline-block;font-size:10px;color:#8ab4f8;background:rgba(66,133,244,.2);padding:3px 10px;border-radius:100px;backdrop-filter:blur(10px)}
+
+/* bottom sheet — pattern mobile nativo */
+.cm-sheet{
+  background:#141820;padding:20px 16px 0;border-radius:24px 24px 0 0;
+  margin-top:-16px;position:relative;z-index:2;
+}
+.cm-sheet-handle{width:40px;height:4px;background:rgba(255,255,255,.2);border-radius:100px;margin:0 auto 14px}
+
+.cm-received-banner{
+  background:rgba(52,168,83,.12);border:1px solid rgba(52,168,83,.3);border-radius:12px;
+  padding:10px 14px;display:flex;align-items:center;gap:10px;margin-bottom:14px;
+}
+.cm-received-banner svg{color:#81c995;flex-shrink:0}
+.cm-received-banner-text{flex:1;font-size:12px;line-height:1.4}
+.cm-received-banner-text b{display:block;font-size:13px;font-weight:600;color:white}
+.cm-received-banner-text span{color:#9aa0a6}
+.cm-received-banner-btn{background:#81c995;color:#0a0c0e;border:none;padding:6px 12px;border-radius:100px;font-family:var(--font);font-size:11px;font-weight:600;cursor:pointer}
+
+.cm-chat-preview{
+  display:flex;gap:10px;align-items:center;padding:12px 14px;background:rgba(255,255,255,.03);
+  border-radius:12px;margin-bottom:14px;cursor:pointer;
+}
+.cm-chat-preview-icon{width:32px;height:32px;border-radius:9px;background:rgba(66,133,244,.15);color:#8ab4f8;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.cm-chat-preview-info{flex:1;min-width:0}
+.cm-chat-preview-title{font-size:12px;font-weight:600;margin-bottom:1px}
+.cm-chat-preview-last{font-size:11px;color:#9aa0a6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cm-chat-preview-badge{background:var(--blue);color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:100px}
+
+/* Controles grandes, bem tocáveis */
+.cm-controls{
+  display:flex;justify-content:center;gap:14px;
+  padding:18px 16px 24px;background:#141820;
+}
+.cm-ctrl{
+  width:56px;height:56px;border-radius:50%;
+  background:rgba(255,255,255,.08);border:none;color:white;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+  transition:all .15s;
+}
+.cm-ctrl:active{transform:scale(.95)}
+.cm-ctrl.muted{background:var(--red);color:white}
+.cm-ctrl.end{width:68px;height:68px;background:var(--red)}
+
+/* ═══════════════════════════════════════════════════════ */
+/* TELA 4 — COCKPIT DO MÉDICO (desktop, expandido)           */
+/* ═══════════════════════════════════════════════════════ */
+
+.cockpit-desktop{
+  background:var(--bg);height:100vh;min-height:720px;
+  display:grid;
+  grid-template-columns:260px 1fr 380px;
+  grid-template-rows:56px 1fr;
+  grid-template-areas:
+    "top top top"
+    "queue main actions";
+}
+
+.doc-top{
+  grid-area:top;background:white;border-bottom:1px solid var(--hborder);
+  display:flex;align-items:center;justify-content:space-between;padding:0 20px;
+}
+.doc-top-left{display:flex;align-items:center;gap:20px}
+.doc-status-pill{
+  display:flex;align-items:center;gap:8px;padding:4px 12px;
+  background:var(--green-l);color:var(--green);border-radius:100px;
+  font-size:12px;font-weight:600;
+}
+.doc-status-pill .sd{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse-sm 1.6s infinite}
+.doc-top-stats{display:flex;gap:20px;font-size:12px}
+.doc-stat{display:flex;align-items:center;gap:6px;color:var(--txt2)}
+.doc-stat b{color:var(--txt);font-weight:600;font-size:13px}
+.doc-top-right{display:flex;align-items:center;gap:16px}
+.doc-toggle{display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg);border-radius:100px;font-size:12px}
+.doc-toggle-switch{width:32px;height:18px;background:var(--green);border-radius:100px;position:relative;cursor:pointer}
+.doc-toggle-switch::after{content:'';position:absolute;top:2px;right:2px;width:14px;height:14px;background:white;border-radius:50%}
+.doc-user{display:flex;align-items:center;gap:8px}
+.doc-user-av{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--blue),#6ba3f7);display:flex;align-items:center;justify-content:center;color:white;font-weight:600;font-size:13px}
+.doc-user-info{font-size:12px;line-height:1.2}
+.doc-user-info b{font-size:13px;display:block}
+
+/* QUEUE */
+.doc-queue{grid-area:queue;background:white;border-right:1px solid var(--hborder);padding:16px;overflow-y:auto}
+.doc-queue-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.doc-queue-title{font-size:13px;font-weight:600}
+.doc-queue-count{background:var(--red);color:white;font-size:11px;font-weight:600;padding:2px 8px;border-radius:100px}
+.doc-queue-filter{display:flex;gap:4px;margin-bottom:14px;background:var(--bg);border-radius:10px;padding:3px}
+.doc-filter-tab{flex:1;text-align:center;font-size:12px;padding:6px;border-radius:8px;cursor:pointer;color:var(--txt2);font-weight:500}
+.doc-filter-tab.active{background:white;color:var(--txt);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+
+.queue-card{background:white;border:1px solid var(--hborder);border-radius:12px;padding:12px;margin-bottom:8px;cursor:pointer;transition:all .15s}
+.queue-card:hover{border-color:var(--hborder2);box-shadow:0 2px 8px rgba(0,0,0,.04)}
+.queue-card.current{border-color:var(--blue);background:var(--blue-l);box-shadow:0 0 0 3px rgba(66,133,244,.12)}
+.queue-card-top{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.qc-pos{width:22px;height:22px;border-radius:6px;background:var(--bg3);color:var(--txt2);font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.queue-card.current .qc-pos{background:var(--blue);color:white}
+.qc-name{font-size:13px;font-weight:600;flex:1}
+.qc-time{font-size:11px;color:var(--txt2)}
+.queue-card-meta{font-size:11px;color:var(--txt2);line-height:1.4}
+.queue-card-meta b{color:var(--txt);font-weight:500}
+.queue-card-btn{margin-top:8px;width:100%;padding:6px;border-radius:8px;background:var(--blue);color:white;border:none;font-family:var(--font);font-size:12px;font-weight:600;cursor:pointer}
+
+/* MAIN */
+.doc-main{grid-area:main;padding:16px;display:grid;grid-template-rows:240px 1fr;gap:12px;overflow:hidden}
+
+.doc-video-strip{background:#1a1f24;border-radius:14px;position:relative;overflow:hidden;display:grid;grid-template-columns:1fr 180px;gap:12px;padding:12px}
+.doc-vid-patient{background:linear-gradient(135deg,#2d3135,#202124);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-direction:column;position:relative}
+.doc-vid-patient-av{width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--red),#f28b82);display:flex;align-items:center;justify-content:center;color:white;font-weight:600;font-size:22px;margin-bottom:8px}
+.doc-vid-patient-name{color:white;font-size:13px;font-weight:600}
+.doc-vid-patient-info{color:#9aa0a6;font-size:11px}
+.doc-vid-self{background:linear-gradient(135deg,#3c4043,#202124);border-radius:10px;display:flex;align-items:center;justify-content:center;color:#5f6368;font-size:11px;position:relative}
+.doc-vid-self-label{position:absolute;bottom:6px;left:8px;background:rgba(0,0,0,.5);color:white;font-size:10px;padding:2px 6px;border-radius:4px}
+.doc-vid-controls{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;gap:6px;z-index:3}
+.doc-vid-ctrl{width:34px;height:34px;border-radius:50%;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.1);color:white;display:flex;align-items:center;justify-content:center;cursor:pointer;backdrop-filter:blur(10px)}
+.doc-vid-ctrl:hover{background:rgba(0,0,0,.7)}
+.doc-vid-ctrl.end{background:var(--red)}
+.doc-vid-timer{position:absolute;top:20px;left:24px;display:flex;align-items:center;gap:8px;z-index:3}
+.doc-vid-timer-pill{background:rgba(234,67,53,.15);border:1px solid rgba(234,67,53,.3);color:#f28b82;padding:3px 10px;border-radius:100px;font-size:11px;font-weight:600;display:flex;align-items:center;gap:6px}
+.doc-vid-timer-pill .ld{width:5px;height:5px;border-radius:50%;background:#ea4335;animation:pulse-sm 1.2s infinite}
+.doc-vid-timer-num{color:white;font-size:12px;font-weight:500}
+
+/* PRONTUÁRIO */
+.doc-chart{background:white;border-radius:14px;border:1px solid var(--hborder);display:flex;flex-direction:column;overflow:hidden}
+.doc-chart-tabs{display:flex;padding:8px 12px 0;border-bottom:1px solid var(--hborder);gap:2px;background:var(--bg)}
+.doc-tab{padding:8px 14px;font-size:12px;font-weight:500;color:var(--txt2);cursor:pointer;border-radius:8px 8px 0 0;position:relative}
+.doc-tab.active{background:white;color:var(--txt);font-weight:600}
+.doc-tab.active::after{content:'';position:absolute;bottom:-1px;left:0;right:0;height:2px;background:var(--blue)}
+.doc-tab-badge{background:var(--red);color:white;font-size:10px;font-weight:600;padding:1px 6px;border-radius:100px;margin-left:4px}
+.doc-chart-body{flex:1;overflow-y:auto;padding:18px}
+
+.chart-patient-header{display:flex;align-items:center;gap:14px;padding-bottom:16px;border-bottom:1px solid var(--hborder);margin-bottom:18px}
+.chart-patient-av{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--red),#f28b82);display:flex;align-items:center;justify-content:center;color:white;font-weight:600;font-size:16px}
+.chart-patient-info{flex:1}
+.chart-patient-name{font-size:16px;font-weight:600;margin-bottom:2px}
+.chart-patient-meta{font-size:12px;color:var(--txt2)}
+.chart-quick-actions{display:flex;gap:6px}
+.chart-qa{padding:6px 10px;background:var(--bg);border:1px solid var(--hborder);border-radius:8px;font-size:11px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:4px;color:var(--txt)}
+
+.chart-section{margin-bottom:20px}
+.chart-section-label{font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.chart-section-label::after{content:'';flex:1;height:1px;background:var(--hborder)}
+.chart-textarea{width:100%;background:var(--bg);border:1px solid var(--hborder);border-radius:10px;padding:12px;font-family:var(--font);font-size:13px;line-height:1.5;color:var(--txt);resize:vertical;min-height:80px;outline:none;transition:all .15s}
+.chart-textarea:focus{background:white;border-color:var(--blue);box-shadow:0 0 0 3px rgba(66,133,244,.1)}
+.chart-textarea.tall{min-height:110px}
+.chart-cid-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+.chart-cid-chip{background:var(--blue-l);color:var(--blue);padding:4px 10px;border-radius:100px;font-size:12px;font-weight:500;display:flex;align-items:center;gap:6px}
+.chart-cid-chip svg{cursor:pointer;opacity:.7}
+.chart-cid-input{padding:6px 10px;background:var(--bg);border:1px dashed var(--hborder2);border-radius:8px;font-size:12px;color:var(--txt2);font-family:var(--font);cursor:pointer}
+.chart-ai-hint{background:linear-gradient(135deg,var(--blue-l),var(--green-l));border:1px solid rgba(66,133,244,.2);border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.5;display:flex;gap:8px;align-items:start;margin-top:8px}
+.chart-ai-hint svg{color:var(--blue);flex-shrink:0;margin-top:1px}
+.chart-ai-hint b{font-family:var(--font-accent);color:var(--blue);font-size:15px;line-height:1}
+
+/* ═══════════════════════════════════════════════════════ */
+/* ACTIONS PANEL — NOVO, expandido com capacidades Mevo      */
+/* ═══════════════════════════════════════════════════════ */
+
+.doc-actions{
+  grid-area:actions;background:white;border-left:1px solid var(--hborder);
+  overflow-y:auto;display:flex;flex-direction:column;
+}
+
+/* Header da aba — mostra que é a área de documentos Mevo */
+.actions-header{
+  padding:14px 16px;border-bottom:1px solid var(--hborder);
+  display:flex;align-items:center;justify-content:space-between;
+  background:linear-gradient(180deg,#fff,#fafbfc);
+}
+.actions-header-left{display:flex;align-items:center;gap:10px}
+.actions-title-main{font-size:14px;font-weight:700;letter-spacing:-.01em}
+.actions-powered{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--txt2);margin-top:2px}
+.actions-powered-logo{color:var(--mevo-purple);font-weight:700;font-size:11px;letter-spacing:-.02em}
+
+/* Banner de status da sessão de prescrição */
+.mevo-session-banner{
+  padding:12px 16px;background:linear-gradient(90deg,var(--mevo-purple-l),#fff);
+  border-bottom:1px solid var(--hborder);display:flex;align-items:center;gap:10px;
+}
+.mevo-session-dot{width:8px;height:8px;border-radius:50%;background:var(--mevo-purple);flex-shrink:0;animation:pulse-sm 2s infinite}
+.mevo-session-text{flex:1;font-size:11px;line-height:1.4}
+.mevo-session-text b{font-size:12px;font-weight:600;color:var(--mevo-purple);display:block}
+
+.mevo-session-link{font-size:11px;color:var(--mevo-purple);font-weight:600;cursor:pointer;text-decoration:none;white-space:nowrap}
+
+/* Main CTA: iniciar sessão Mevo */
+.mevo-cta-wrap{padding:16px}
+.mevo-start-btn{
+  width:100%;padding:14px;border-radius:12px;
+  background:var(--mevo-purple);color:white;border:none;
+  font-family:var(--font);font-weight:600;font-size:14px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  box-shadow:0 4px 16px rgba(90,42,130,.25);transition:all .15s;
+}
+.mevo-start-btn:hover{background:#4d2370;transform:translateY(-1px)}
+.mevo-start-btn svg{flex-shrink:0}
+
+.mevo-start-hint{
+  font-size:11px;color:var(--txt2);text-align:center;margin-top:8px;line-height:1.5;
+}
+.mevo-start-hint b{color:var(--mevo-purple);font-weight:600}
+
+/* Seção: documentos desta consulta */
+.actions-section{padding:0 16px 16px}
+.actions-section-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 0 10px;
+}
+.actions-section-title{
+  font-size:11px;font-weight:700;color:var(--txt2);
+  text-transform:uppercase;letter-spacing:.06em;
+}
+.actions-section-count{font-size:10px;color:var(--txt3);font-weight:500}
+
+/* Card de documento já emitido nesta consulta */
+.doc-emitted{
+  background:white;border:1px solid var(--hborder);border-radius:10px;
+  padding:10px 12px;margin-bottom:6px;
+  display:flex;align-items:center;gap:10px;
+}
+.doc-emitted:hover{border-color:var(--hborder2)}
+.doc-emitted-ic{
+  width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.doc-emitted-ic.receita{background:var(--blue-l);color:var(--blue)}
+.doc-emitted-ic.atestado{background:var(--green-l);color:var(--green)}
+.doc-emitted-ic.exame{background:var(--yellow-l);color:#b38600}
+.doc-emitted-ic.encam{background:var(--red-l);color:var(--red)}
+.doc-emitted-info{flex:1;min-width:0}
+.doc-emitted-title{font-size:12px;font-weight:600;line-height:1.2;margin-bottom:2px}
+.doc-emitted-meta{font-size:10px;color:var(--txt2);display:flex;align-items:center;gap:6px}
+.doc-emitted-meta .signed{color:var(--green);font-weight:600;display:flex;align-items:center;gap:3px}
+.doc-emitted-actions{display:flex;gap:4px;flex-shrink:0}
+.doc-emitted-btn{width:26px;height:26px;border-radius:6px;background:var(--bg);border:none;color:var(--txt2);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.doc-emitted-btn:hover{background:var(--bg3);color:var(--txt)}
+
+/* Empty state */
+.doc-empty{
+  background:var(--bg);border:1px dashed var(--hborder2);border-radius:10px;
+  padding:20px;text-align:center;font-size:12px;color:var(--txt2);line-height:1.5;
+}
+
+/* Tipos de documento disponíveis — cards compactos com hotkeys */
+.doc-types-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:6px;
+}
+.doc-type-card{
+  background:white;border:1px solid var(--hborder);border-radius:10px;
+  padding:10px 12px;cursor:pointer;transition:all .15s;
+  display:flex;align-items:center;gap:10px;position:relative;
+}
+.doc-type-card:hover{border-color:var(--mevo-purple);background:#fefbff}
+.doc-type-card:hover .doc-type-hotkey{border-color:var(--mevo-purple);color:var(--mevo-purple)}
+.doc-type-ic{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.doc-type-card:nth-child(1) .doc-type-ic{background:var(--blue-l);color:var(--blue)}
+.doc-type-card:nth-child(2) .doc-type-ic{background:var(--red-l);color:var(--red)}
+.doc-type-card:nth-child(3) .doc-type-ic{background:var(--yellow-l);color:#b38600}
+.doc-type-card:nth-child(4) .doc-type-ic{background:var(--green-l);color:var(--green)}
+.doc-type-card:nth-child(5) .doc-type-ic{background:#f3e8ff;color:#7c3aed}
+.doc-type-card:nth-child(6) .doc-type-ic{background:#e0f2fe;color:#0284c7}
+.doc-type-info{flex:1;min-width:0}
+.doc-type-name{font-size:12px;font-weight:600;color:var(--txt);line-height:1.2}
+.doc-type-sub{font-size:10px;color:var(--txt2);margin-top:1px}
+.doc-type-hotkey{
+  position:absolute;top:6px;right:6px;
+  font-size:9px;color:var(--txt3);border:1px solid var(--hborder);
+  padding:1px 5px;border-radius:4px;font-weight:600;
+  background:white;line-height:1.3;
+}
+
+/* Recursos Mevo embutidos — histórico, alergias, modelos */
+.mevo-features-grid{
+  display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;
+}
+.mevo-feature-card{
+  background:var(--bg);border:1px solid var(--hborder);border-radius:10px;
+  padding:10px 8px;text-align:center;cursor:pointer;transition:all .15s;
+}
+.mevo-feature-card:hover{background:white;border-color:var(--mevo-purple)}
+.mevo-feature-ic{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;margin:0 auto 6px;background:white;color:var(--mevo-purple)}
+.mevo-feature-name{font-size:11px;font-weight:600;line-height:1.2}
+.mevo-feature-sub{font-size:10px;color:var(--txt2);margin-top:2px}
+.mevo-feature-badge{display:inline-block;background:var(--red);color:white;font-size:9px;font-weight:700;padding:0 5px;border-radius:100px;margin-left:3px}
+
+/* MevoSync — diferencial com IA */
+.mevosync-card{
+  background:linear-gradient(135deg,#f3ecfb,#fff);
+  border:1px solid rgba(90,42,130,.2);border-radius:12px;
+  padding:14px;margin-top:14px;position:relative;overflow:hidden;
+}
+.mevosync-card::before{
+  content:'';position:absolute;top:-40px;right:-40px;width:120px;height:120px;
+  background:radial-gradient(circle,rgba(90,42,130,.1),transparent 70%);
+  border-radius:50%;pointer-events:none;
+}
+.mevosync-header{display:flex;align-items:center;gap:8px;margin-bottom:8px;position:relative;z-index:1}
+.mevosync-logo{
+  background:var(--mevo-purple);color:white;font-weight:700;font-size:10px;
+  letter-spacing:-.01em;padding:2px 8px;border-radius:100px;display:flex;align-items:center;gap:4px;
+}
+.mevosync-logo-tag{background:rgba(255,255,255,.2);padding:1px 5px;border-radius:4px;font-size:9px}
+.mevosync-ai-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--mevo-purple);font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+.mevosync-title{font-size:13px;font-weight:700;margin-bottom:4px;position:relative;z-index:1}
+.mevosync-desc{font-size:11px;color:var(--txt2);line-height:1.5;margin-bottom:10px;position:relative;z-index:1}
+.mevosync-preview{
+  background:white;border-radius:8px;padding:10px;font-size:11px;line-height:1.5;
+  border:1px solid rgba(90,42,130,.15);position:relative;z-index:1;
+}
+.mevosync-preview-label{font-size:9px;font-weight:700;color:var(--mevo-purple);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+.mevosync-preview-text{color:var(--txt);font-style:italic}
+.mevosync-preview-out{
+  margin-top:8px;padding-top:8px;border-top:1px dashed var(--hborder);
+  display:flex;flex-direction:column;gap:3px;font-style:normal;
+}
+.mevosync-preview-out-label{font-size:9px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px}
+.mevosync-preview-item{display:flex;align-items:center;gap:6px;font-size:11px}
+.mevosync-preview-item svg{color:var(--green);flex-shrink:0}
+.mevosync-use-btn{
+  margin-top:10px;width:100%;background:white;border:1px solid var(--mevo-purple);
+  color:var(--mevo-purple);padding:8px;border-radius:8px;font-family:var(--font);
+  font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;
+  position:relative;z-index:1;
+}
+.mevosync-use-btn:hover{background:var(--mevo-purple);color:white}
+
+/* Ações finais */
+.actions-footer{
+  border-top:1px solid var(--hborder);padding:14px 16px;background:var(--bg);margin-top:auto;
+}
+.finish-btn{
+  width:100%;padding:13px;border-radius:100px;background:var(--green);color:white;
+  border:none;font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.finish-btn:hover{background:var(--green-d)}
+.finish-btn-note{font-size:10px;color:var(--txt2);text-align:center;margin-top:6px;line-height:1.4}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- TELA 1 — LP MOBILE                                        -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="screen active" id="screen-lp">
+  <div class="mobile-frame-wrap">
+    <div class="mobile-frame">
+      <div class="mobile-status">
+        <span>9:41</span>
+        <div class="mobile-status-icons">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 17h2v3H2v-3zm3.5-3h2v6h-2v-6zm3.5-3h2v9H9v-9zm3.5-3h2v12h-2V8zm3.5-3h2v15h-2V5z"/></svg>
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/></svg>
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 6H5v12h12V6zm-2 10H7V8h8v8zm6-10h-2v12h2V6z"/></svg>
+        </div>
+      </div>
+      <div class="mobile-content">
+        <div class="lp-m">
+          <div class="bar4"><span></span><span></span><span></span><span></span></div>
+
+          <nav class="lp-m-nav">
+            <div class="logo-no">
+              <span class="dots"><span></span><span></span><span></span><span></span></span>
+              <span class="no-word">nó</span>&nbsp;telemed
+            </div>
+            <button class="lp-m-menu-btn">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
+          </nav>
+
+          <section class="lp-m-hero">
+            <div class="lp-m-badge">
+              <span class="pulse"></span>
+              3 médicos online agora
+            </div>
+            <h1 class="lp-m-h1">Consulta <span class="accent">sem sair</span> de casa.</h1>
+            <p class="lp-m-sub">
+              Paga, entra na fila, médico te atende pelo vídeo em até 10 min. Receita no seu celular.
+            </p>
+
+            <div class="lp-m-mock">
+              <div class="lp-m-mock-doctor">
+                <div class="mock-av">JS</div>
+                <div class="mock-info">
+                  <div class="mock-name">Dr. João Silva</div>
+                  <div class="mock-spec">Clínico Geral · CRM-SP 123456</div>
+                </div>
+                <div class="mock-live"><span class="ld"></span>Atende</div>
+              </div>
+              <div class="mock-q you">
+                <div class="mock-q-pos">3</div>
+                <div class="mock-q-txt"><b>Você está aqui</b> · aguardando</div>
+                <div class="mock-q-time">~7 min</div>
+              </div>
+              <div class="mock-q">
+                <div class="mock-q-pos">4</div>
+                <div class="mock-q-txt">Ana M.</div>
+                <div class="mock-q-time">~10 min</div>
+              </div>
+            </div>
+
+            <div class="lp-m-trust-row">
+              <div class="lp-m-trust-pill">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                CRM ativo
+              </div>
+              <div class="lp-m-trust-pill">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                Receita válida
+              </div>
+              <div class="lp-m-trust-pill">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                LGPD
+              </div>
+            </div>
+          </section>
+
+          <section class="lp-m-benefits">
+            <span class="lp-m-section-eyebrow">por que nós</span>
+            <h2 class="lp-m-section-title">Saúde descomplicada</h2>
+
+            <div class="lp-m-benefit">
+              <div class="lp-m-benefit-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              </div>
+              <div>
+                <h3>Atendimento em 10 min</h3>
+                <p>Sem agendamento. Paga e entra na fila.</p>
+              </div>
+            </div>
+
+            <div class="lp-m-benefit">
+              <div class="lp-m-benefit-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              </div>
+              <div>
+                <h3>R$ 59 por consulta</h3>
+                <p>Sem mensalidade, sem surpresa no fim.</p>
+              </div>
+            </div>
+
+            <div class="lp-m-benefit">
+              <div class="lp-m-benefit-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              </div>
+              <div>
+                <h3>Tudo no seu celular</h3>
+                <p>Receita, atestado e exames por SMS e email.</p>
+              </div>
+            </div>
+
+            <div class="lp-m-benefit">
+              <div class="lp-m-benefit-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              </div>
+              <div>
+                <h3>Seguro e privado</h3>
+                <p>Criptografia ponta-a-ponta, conformidade total.</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="lp-m-steps-wrap">
+            <span class="lp-m-section-eyebrow">simples assim</span>
+            <h2 class="lp-m-section-title">4 passos</h2>
+
+            <div class="lp-m-step">
+              <div class="lp-m-step-num">1</div>
+              <h4>Clica e cadastra</h4>
+              <p>Nome, CPF, celular. Menos de 1 minuto.</p>
+            </div>
+            <div class="lp-m-step">
+              <div class="lp-m-step-num">2</div>
+              <h4>Paga com PIX ou cartão</h4>
+              <p>PIX cai na hora. Cartão em segundos.</p>
+            </div>
+            <div class="lp-m-step">
+              <div class="lp-m-step-num">3</div>
+              <h4>Entra na fila</h4>
+              <p>Vê sua posição e o tempo estimado ao vivo.</p>
+            </div>
+            <div class="lp-m-step">
+              <div class="lp-m-step-num">4</div>
+              <h4>Conversa com o médico</h4>
+              <p>Vídeo pelo navegador. Documentos chegam no celular.</p>
+            </div>
+          </section>
+
+          <section class="lp-m-pricing">
+            <span class="lp-m-section-eyebrow">sem surpresa</span>
+            <h2 class="lp-m-section-title">Preços</h2>
+
+            <div class="lp-m-price-card">
+              <h4>Consulta avulsa</h4>
+              <div class="pcat">Para uma consulta pontual</div>
+              <div class="lp-m-price-value">
+                <span class="small">R$</span>
+                <span class="big">59</span>
+                <span class="small">/consulta</span>
+              </div>
+              <ul class="lp-m-price-features">
+                <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Consulta por vídeo até 20 min</li>
+                <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Receita digital assinada</li>
+                <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Atestado e pedido de exame</li>
+              </ul>
+            </div>
+
+            <div class="lp-m-price-card featured">
+              <h4>Pacote família</h4>
+              <div class="pcat">Para você e mais 3 dependentes</div>
+              <div class="lp-m-price-value">
+                <span class="small">R$</span>
+                <span class="big">199</span>
+                <span class="small">/mês</span>
+              </div>
+              <ul class="lp-m-price-features">
+                <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Até 4 consultas/mês</li>
+                <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>4 dependentes</li>
+                <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Prioridade na fila</li>
+              </ul>
+            </div>
+
+            <div class="lp-m-price-card">
+              <h4>Empresas</h4>
+              <div class="pcat">Benefício para o seu time</div>
+              <div class="lp-m-price-value">
+                <span class="big" style="font-size:22px;">Sob consulta</span>
+              </div>
+              <ul class="lp-m-price-features">
+                <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Atendimento corporativo</li>
+                <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Faturamento PJ</li>
+              </ul>
+            </div>
+          </section>
+
+          <footer class="lp-m-footer">
+            <div class="logo-no">
+              <span class="dots"><span></span><span></span><span></span><span></span></span>
+              <span class="no-word">nó</span>&nbsp;telemed
+            </div>
+            <div>© 2026 Clínica Exemplo · CNPJ 00.000.000/0001-00</div>
+            <div style="margin-top:6px;">RT Dr. João Silva · CRM-SP 123456</div>
+          </footer>
+        </div>
+      </div>
+
+      <!-- CTA fixo no rodapé -->
+      <div class="lp-m-cta-fixed">
+        <div class="cta-fixed-price">A partir de <b>R$ 59</b> · sem mensalidade</div>
+        <button class="lp-m-cta-primary" onclick="showScreen('screen-fila')">
+          Quero me consultar agora
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- TELA 2 — FILA MOBILE                                      -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="screen" id="screen-fila">
+  <div class="mobile-frame-wrap">
+    <div class="mobile-frame">
+      <div class="mobile-status">
+        <span>9:47</span>
+        <div class="mobile-status-icons">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 17h2v3H2v-3zm3.5-3h2v6h-2v-6zm3.5-3h2v9H9v-9zm3.5-3h2v12h-2V8zm3.5-3h2v15h-2V5z"/></svg>
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/></svg>
+        </div>
+      </div>
+      <div class="mobile-content">
+        <div class="fila-m">
+          <div class="bar4"><span></span><span></span><span></span><span></span></div>
+
+          <div class="fila-m-top">
+            <div class="logo-no">
+              <span class="dots"><span></span><span></span><span></span><span></span></span>
+              <span class="no-word">nó</span>
+            </div>
+            <div class="fila-m-user">
+              <div class="fila-m-user-av">MA</div>
+              <div class="fila-m-user-info">
+                <b>Maria Almeida</b>
+                <span style="color:var(--txt2);">#8421</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="fila-m-status-label">você está na fila</div>
+          <div class="fila-m-accent">aguardando...</div>
+          <p class="fila-m-sub">Em breve um médico vai te atender pelo vídeo.</p>
+
+          <div class="fila-m-ring-wrap">
+            <div class="fila-m-ring">
+              <div class="fila-m-ring-inner">
+                <div class="fila-m-ring-num">3º</div>
+                <div class="fila-m-ring-label">sua posição</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="fila-m-info-row">
+            <div class="fila-m-info-card">
+              <div class="fim-ic-label">Estimado</div>
+              <div class="fim-ic-value">~7 min</div>
+            </div>
+            <div class="fila-m-info-card">
+              <div class="fim-ic-label">Médicos</div>
+              <div class="fim-ic-value">3 online</div>
+            </div>
+          </div>
+
+          <div class="fila-m-progress">
+            <div class="fila-m-progress-fill"></div>
+          </div>
+
+          <div class="fila-m-section">
+            <div class="fila-m-section-title">
+              Checagem técnica · tudo ok
+              <svg class="collapse-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+            <div class="tech-m-item">
+              <div class="tech-m-ic">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+              </div>
+              <div class="tech-m-info">
+                <div class="tech-m-t">Câmera</div>
+                <div class="tech-m-s">HD · funcionando</div>
+              </div>
+            </div>
+            <div class="tech-m-item">
+              <div class="tech-m-ic">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
+              </div>
+              <div class="tech-m-info">
+                <div class="tech-m-t">Microfone</div>
+                <div class="tech-m-s">Captando bem</div>
+              </div>
+            </div>
+            <div class="tech-m-item">
+              <div class="tech-m-ic">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/></svg>
+              </div>
+              <div class="tech-m-info">
+                <div class="tech-m-t">Internet</div>
+                <div class="tech-m-s">Estável · 42 Mbps</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="fila-m-section">
+            <div class="fila-m-section-title">Médicos atendendo</div>
+            <div class="fila-m-docs-slider">
+              <div class="fila-m-doc-card">
+                <div class="fmd-av b">JS<span class="sd busy"></span></div>
+                <div class="fmd-info">
+                  <div class="fmd-name">Dr. João Silva</div>
+                  <div class="fmd-st y">Em consulta</div>
+                </div>
+              </div>
+              <div class="fila-m-doc-card">
+                <div class="fmd-av g">AR<span class="sd busy"></span></div>
+                <div class="fmd-info">
+                  <div class="fmd-name">Dra. Ana Rocha</div>
+                  <div class="fmd-st y">Em consulta</div>
+                </div>
+              </div>
+              <div class="fila-m-doc-card">
+                <div class="fmd-av r">CM<span class="sd"></span></div>
+                <div class="fmd-info">
+                  <div class="fmd-name">Dr. Carlos M.</div>
+                  <div class="fmd-st g">Livre · próximo</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="fila-m-tip">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            <div class="fila-m-tip-text">
+              <b>Dica:</b> deixe à mão um documento com foto e a lista dos remédios que você toma.
+            </div>
+          </div>
+
+          <div class="fila-m-bottom-bar">
+            <button class="fila-m-cancel">Cancelar</button>
+            <button class="fila-m-join" onclick="showScreen('screen-consulta')">
+              Simular entrada
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- TELA 3 — CONSULTA MOBILE                                  -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="screen" id="screen-consulta">
+  <div class="mobile-frame-wrap">
+    <div class="mobile-frame">
+      <div class="mobile-status" style="color:white;">
+        <span>9:54</span>
+        <div class="mobile-status-icons">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 17h2v3H2v-3zm3.5-3h2v6h-2v-6zm3.5-3h2v9H9v-9zm3.5-3h2v12h-2V8zm3.5-3h2v15h-2V5z"/></svg>
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/></svg>
+        </div>
+      </div>
+      <div class="mobile-content" style="background:#0a0c0e;">
+        <div class="consulta-m">
+          <div class="cm-video-area">
+            <div class="cm-top-bar">
+              <div class="cm-live-pill">
+                <span class="ld"></span>
+                AO VIVO
+              </div>
+              <div class="cm-timer">06:42</div>
+            </div>
+
+            <div class="cm-self-video">
+              <div>📹</div>
+              <div class="cm-self-label">Você</div>
+            </div>
+
+            <div class="cm-doctor-big">CM</div>
+
+            <div class="cm-doctor-info">
+              <div class="cm-doctor-name">Dr. Carlos Mendes</div>
+              <div class="cm-doctor-spec">Clínico Geral</div>
+              <div class="cm-doctor-crm">CRM-SP 345678</div>
+            </div>
+          </div>
+
+          <div class="cm-sheet">
+            <div class="cm-sheet-handle"></div>
+
+            <div class="cm-received-banner">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              <div class="cm-received-banner-text">
+                <b>Receita recebida</b>
+                <span>chegou no seu SMS há 1 min</span>
+              </div>
+              <button class="cm-received-banner-btn">Ver</button>
+            </div>
+
+            <div class="cm-chat-preview">
+              <div class="cm-chat-preview-icon">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              </div>
+              <div class="cm-chat-preview-info">
+                <div class="cm-chat-preview-title">Mensagens</div>
+                <div class="cm-chat-preview-last">Dr. Carlos: Abra a boca pra eu ver...</div>
+              </div>
+              <div class="cm-chat-preview-badge">1</div>
+            </div>
+          </div>
+
+          <div class="cm-controls">
+            <button class="cm-ctrl">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
+            </button>
+            <button class="cm-ctrl">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+            </button>
+            <button class="cm-ctrl end">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72" transform="rotate(135 12 12)"/></svg>
+            </button>
+            <button class="cm-ctrl">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- TELA 4 — COCKPIT DO MÉDICO (DESKTOP, EXPANDIDO)           -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="screen" id="screen-cockpit">
+  <div class="cockpit-desktop">
+
+    <div class="doc-top">
+      <div class="doc-top-left">
+        <div class="logo-no">
+          <span class="dots"><span></span><span></span><span></span><span></span></span>
+          <span class="no-word">nó</span>&nbsp;telemed <span style="color:var(--txt2);font-weight:400;font-size:12px;margin-left:6px;">painel médico</span>
+        </div>
+        <div class="doc-status-pill"><span class="sd"></span>Disponível</div>
+        <div class="doc-top-stats">
+          <div class="doc-stat">Hoje: <b>12</b> consultas</div>
+          <div class="doc-stat">Tempo médio: <b>18min</b></div>
+          <div class="doc-stat">NPS: <b>9,2</b></div>
+        </div>
+      </div>
+      <div class="doc-top-right">
+        <div class="doc-toggle">
+          Aceitar próximos
+          <div class="doc-toggle-switch"></div>
+        </div>
+        <div class="doc-user">
+          <div class="doc-user-av">CM</div>
+          <div class="doc-user-info">
+            <b>Dr. Carlos Mendes</b>
+            <span style="color:var(--txt2)">CRM-SP 345678</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="doc-queue">
+      <div class="doc-queue-header">
+        <div class="doc-queue-title">Fila de atendimento</div>
+        <div class="doc-queue-count">5</div>
+      </div>
+      <div class="doc-queue-filter">
+        <div class="doc-filter-tab active">Aguardando</div>
+        <div class="doc-filter-tab">Em espera</div>
+      </div>
+      <div class="queue-card current">
+        <div class="queue-card-top">
+          <div class="qc-pos">●</div>
+          <div class="qc-name">Maria Almeida</div>
+          <div class="qc-time">em andamento</div>
+        </div>
+        <div class="queue-card-meta">32 anos · <b>dor de garganta, febre</b><br/>Entrou há 7 min</div>
+      </div>
+      <div class="queue-card">
+        <div class="queue-card-top">
+          <div class="qc-pos">1</div>
+          <div class="qc-name">José Ferreira</div>
+          <div class="qc-time">~1 min</div>
+        </div>
+        <div class="queue-card-meta">58 anos · <b>pressão alta</b><br/>Aguardando há 9 min</div>
+        <button class="queue-card-btn">Chamar próximo</button>
+      </div>
+      <div class="queue-card">
+        <div class="queue-card-top">
+          <div class="qc-pos">2</div>
+          <div class="qc-name">Patrícia Lima</div>
+          <div class="qc-time">~3 min</div>
+        </div>
+        <div class="queue-card-meta">28 anos · <b>dor de cabeça</b><br/>Aguardando há 6 min</div>
+      </div>
+      <div class="queue-card">
+        <div class="queue-card-top">
+          <div class="qc-pos">3</div>
+          <div class="qc-name">Roberto Souza</div>
+          <div class="qc-time">~5 min</div>
+        </div>
+        <div class="queue-card-meta">45 anos · <b>resfriado</b><br/>Aguardando há 4 min</div>
+      </div>
+      <div class="queue-card">
+        <div class="queue-card-top">
+          <div class="qc-pos">4</div>
+          <div class="qc-name">Ana Beatriz</div>
+          <div class="qc-time">~7 min</div>
+        </div>
+        <div class="queue-card-meta">35 anos · <b>renovação de receita</b><br/>Aguardando há 2 min</div>
+      </div>
+    </div>
+
+    <div class="doc-main">
+      <div class="doc-video-strip">
+        <div class="doc-vid-patient">
+          <div class="doc-vid-timer">
+            <div class="doc-vid-timer-pill"><span class="ld"></span>AO VIVO</div>
+            <div class="doc-vid-timer-num">06:42</div>
+          </div>
+          <div class="doc-vid-patient-av">MA</div>
+          <div class="doc-vid-patient-name">Maria Almeida</div>
+          <div class="doc-vid-patient-info">32 anos · primeira consulta</div>
+          <div class="doc-vid-controls">
+            <button class="doc-vid-ctrl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg></button>
+            <button class="doc-vid-ctrl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg></button>
+            <button class="doc-vid-ctrl end"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+          </div>
+        </div>
+        <div class="doc-vid-self">
+          📹
+          <div class="doc-vid-self-label">Você · Dr. Carlos</div>
+        </div>
+      </div>
+
+      <div class="doc-chart">
+        <div class="doc-chart-tabs">
+          <div class="doc-tab active">Prontuário</div>
+          <div class="doc-tab">Histórico <span class="doc-tab-badge">3</span></div>
+          <div class="doc-tab">Anamnese rápida</div>
+        </div>
+        <div class="doc-chart-body">
+          <div class="chart-patient-header">
+            <div class="chart-patient-av">MA</div>
+            <div class="chart-patient-info">
+              <div class="chart-patient-name">Maria Almeida</div>
+              <div class="chart-patient-meta">CPF 123.456.789-00 · 32 anos · ♀ · (11) 9****-9898</div>
+            </div>
+            <div class="chart-quick-actions">
+              <button class="chart-qa">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                Sem alergias
+              </button>
+            </div>
+          </div>
+
+          <div class="chart-section">
+            <div class="chart-section-label">Queixa principal</div>
+            <textarea class="chart-textarea">Dor de garganta forte há 3 dias, febre baixa (37,8°C), dificuldade para engolir. Nega tosse e coriza.</textarea>
+          </div>
+
+          <div class="chart-section">
+            <div class="chart-section-label">Evolução / exame físico</div>
+            <textarea class="chart-textarea tall">Ao exame (vídeo): orofaringe hiperemiada, amígdalas aumentadas com pontos esbranquiçados sugestivos de amigdalite bacteriana. Paciente em bom estado geral, consciente e orientada. Nega comorbidades prévias ou medicação contínua.</textarea>
+          </div>
+
+          <div class="chart-section">
+            <div class="chart-section-label">Hipótese diagnóstica (CID-10)</div>
+            <div class="chart-cid-row">
+              <div class="chart-cid-chip">J03.9 — Amigdalite aguda
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </div>
+              <div class="chart-cid-input">+ adicionar CID</div>
+            </div>
+            <div class="chart-ai-hint">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+              <div><b>sugestão nó IA:</b> considere também <i>faringite aguda (J02.9)</i> como hipótese alternativa.</div>
+            </div>
+          </div>
+
+          <div class="chart-section">
+            <div class="chart-section-label">Conduta</div>
+            <textarea class="chart-textarea"></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- ACTIONS PANEL — EXPANDIDO COM CAPACIDADES MEVO        -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <div class="doc-actions">
+
+      <!-- Header -->
+      <div class="actions-header">
+        <div class="actions-header-left">
+          <div>
+            <div class="actions-title-main">Documentos médicos</div>
+            <div class="actions-powered">
+              integração oficial ·
+              <span class="actions-powered-logo">mevo</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Banner de sessão Mevo ativa -->
+      <div class="mevo-session-banner">
+        <div class="mevo-session-dot"></div>
+        <div class="mevo-session-text">
+          <b>Sessão pronta</b>
+          Paciente vinculada · CRM validado · certificado Soluti BirdID ativo
+        </div>
+      </div>
+
+      <!-- CTA principal: abrir Mevo -->
+      <div class="mevo-cta-wrap">
+        <button class="mevo-start-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+          Iniciar prescrição
+        </button>
+        <div class="mevo-start-hint">
+          Abre a interface <b>Mevo Prescritores</b> embedada · emita múltiplos documentos na mesma sessão
+        </div>
+      </div>
+
+      <!-- Tipos de documento disponíveis -->
+      <div class="actions-section">
+        <div class="actions-section-head">
+          <div class="actions-section-title">Atalhos diretos</div>
+          <div class="actions-section-count">6 tipos</div>
+        </div>
+
+        <div class="doc-types-grid">
+          <div class="doc-type-card">
+            <div class="doc-type-hotkey">R</div>
+            <div class="doc-type-ic">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>
+            </div>
+            <div class="doc-type-info">
+              <div class="doc-type-name">Receita médica</div>
+              <div class="doc-type-sub">Comum · controlada C1/C5</div>
+            </div>
+          </div>
+
+          <div class="doc-type-card">
+            <div class="doc-type-hotkey">A</div>
+            <div class="doc-type-ic">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            </div>
+            <div class="doc-type-info">
+              <div class="doc-type-name">Atestado</div>
+              <div class="doc-type-sub">Com CID e período</div>
+            </div>
+          </div>
+
+          <div class="doc-type-card">
+            <div class="doc-type-hotkey">E</div>
+            <div class="doc-type-ic">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </div>
+            <div class="doc-type-info">
+              <div class="doc-type-name">Solicitação exame</div>
+              <div class="doc-type-sub">Código TUSS · lab + imagem</div>
+            </div>
+          </div>
+
+          <div class="doc-type-card">
+            <div class="doc-type-hotkey">N</div>
+            <div class="doc-type-ic">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
+            </div>
+            <div class="doc-type-info">
+              <div class="doc-type-name">Encaminhamento</div>
+              <div class="doc-type-sub">Especialista · 50+ áreas</div>
+            </div>
+          </div>
+
+          <div class="doc-type-card">
+            <div class="doc-type-hotkey">L</div>
+            <div class="doc-type-ic">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            </div>
+            <div class="doc-type-info">
+              <div class="doc-type-name">Laudo / relatório</div>
+              <div class="doc-type-sub">Com título e texto livre</div>
+            </div>
+          </div>
+
+          <div class="doc-type-card">
+            <div class="doc-type-hotkey">M</div>
+            <div class="doc-type-ic">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            </div>
+            <div class="doc-type-info">
+              <div class="doc-type-name">LME</div>
+              <div class="doc-type-sub">Medicamento excepcional</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Documentos já emitidos nesta consulta -->
+      <div class="actions-section">
+        <div class="actions-section-head">
+          <div class="actions-section-title">Emitidos nesta consulta</div>
+          <div class="actions-section-count">1 documento</div>
+        </div>
+
+        <div class="doc-emitted">
+          <div class="doc-emitted-ic receita">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          </div>
+          <div class="doc-emitted-info">
+            <div class="doc-emitted-title">Receita · Amoxicilina 500mg</div>
+            <div class="doc-emitted-meta">
+              NX742981 · há 2 min
+              <span class="signed">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                assinada
+              </span>
+            </div>
+          </div>
+          <div class="doc-emitted-actions">
+            <button class="doc-emitted-btn" title="Ver PDF">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+            <button class="doc-emitted-btn" title="Reenviar">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div style="margin-top:6px;font-size:10px;color:var(--txt3);line-height:1.5;padding:0 2px;">
+          PDFs armazenados no seu storage · retenção 20 anos · conformidade CFM/NGS2
+        </div>
+      </div>
+
+      <!-- Recursos Mevo embutidos (sidebar do iframe) -->
+      <div class="actions-section">
+        <div class="actions-section-head">
+          <div class="actions-section-title">Recursos clínicos Mevo</div>
+        </div>
+
+        <div class="mevo-features-grid">
+          <div class="mevo-feature-card">
+            <div class="mevo-feature-ic">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </div>
+            <div class="mevo-feature-name">Histórico<span class="mevo-feature-badge">3</span></div>
+            <div class="mevo-feature-sub">consultas anteriores</div>
+          </div>
+
+          <div class="mevo-feature-card">
+            <div class="mevo-feature-ic">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </div>
+            <div class="mevo-feature-name">Alergias</div>
+            <div class="mevo-feature-sub">estruturadas</div>
+          </div>
+
+          <div class="mevo-feature-card">
+            <div class="mevo-feature-ic">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+            </div>
+            <div class="mevo-feature-name">Interações</div>
+            <div class="mevo-feature-sub">IBM Micromedex</div>
+          </div>
+
+          <div class="mevo-feature-card">
+            <div class="mevo-feature-ic">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 13h6M9 17h3"/></svg>
+            </div>
+            <div class="mevo-feature-name">Modelos</div>
+            <div class="mevo-feature-sub">receitas salvas</div>
+          </div>
+
+          <div class="mevo-feature-card">
+            <div class="mevo-feature-ic">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7h-9M14 17H5M17 4l3 3-3 3M7 14l-3 3 3 3"/></svg>
+            </div>
+            <div class="mevo-feature-name">Farmácias</div>
+            <div class="mevo-feature-sub">rede nacional</div>
+          </div>
+
+          <div class="mevo-feature-card">
+            <div class="mevo-feature-ic">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            </div>
+            <div class="mevo-feature-name">Benefícios</div>
+            <div class="mevo-feature-sub">Rename · desconto</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MevoSync: diferencial IA -->
+      <div style="padding:0 16px;">
+        <div class="mevosync-card">
+          <div class="mevosync-header">
+            <span class="mevosync-logo">
+              mevo<span class="mevosync-logo-tag">SYNC</span>
+            </span>
+            <span class="mevosync-ai-badge">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+              IA
+            </span>
+          </div>
+          <div class="mevosync-title">Transcrição → prescrição automática</div>
+          <div class="mevosync-desc">
+            A IA transformou o que você disse na consulta em uma prescrição pronta. Revise e emita em 1 clique.
+          </div>
+
+          <div class="mevosync-preview">
+            <div class="mevosync-preview-label">O que você disse</div>
+            <div class="mevosync-preview-text">
+              "...vou passar amoxicilina 500mg, 1 comprimido de 8 em 8 horas por 7 dias, e dipirona se sentir dor..."
+            </div>
+
+            <div class="mevosync-preview-out">
+              <div class="mevosync-preview-out-label">Gerou automaticamente</div>
+              <div class="mevosync-preview-item">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                <span><b>Amoxicilina 500mg</b> · 1 cp 8/8h · 7 dias</span>
+              </div>
+              <div class="mevosync-preview-item">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                <span><b>Dipirona 500mg</b> · se dor · até 4x/dia</span>
+              </div>
+            </div>
+          </div>
+
+          <button class="mevosync-use-btn">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            Usar sugestão e abrir prescrição
+          </button>
+        </div>
+      </div>
+
+      <!-- Finalização -->
+      <div class="actions-footer">
+        <button class="finish-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Encerrar e chamar próximo
+        </button>
+        <div class="finish-btn-note">
+          Documentos chegam no SMS e email da paciente em segundos
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- NAV DE DEMO -->
+<div class="demo-nav">
+  <span class="grp-label">paciente · mobile</span>
+  <button id="nav-lp" class="active" onclick="showScreen('screen-lp')"><span class="dot"></span>LP</button>
+  <button id="nav-fila" onclick="showScreen('screen-fila')"><span class="dot"></span>Fila</button>
+  <button id="nav-consulta" onclick="showScreen('screen-consulta')"><span class="dot"></span>Consulta</button>
+  <span class="sep"></span>
+  <span class="grp-label">médico · desktop</span>
+  <button id="nav-cockpit" onclick="showScreen('screen-cockpit')"><span class="dot"></span>Cockpit</button>
+</div>
+
+<script>
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.demo-nav button').forEach(b => b.classList.remove('active'));
+  const key = id.replace('screen-','nav-');
+  const btn = document.getElementById(key);
+  if (btn) btn.classList.add('active');
+  window.scrollTo(0, 0);
+}
+</script>
+
+</body>
+</html>
