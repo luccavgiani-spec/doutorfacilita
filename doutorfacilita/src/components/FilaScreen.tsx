@@ -1,4 +1,5 @@
 import { JoinConsultButton } from "@/components/fila/JoinConsultButton";
+import LogoutButton from "@/components/auth/LogoutButton";
 
 /**
  * Tela Fila — Fila de espera do paciente (rota /fila)
@@ -8,6 +9,7 @@ import { JoinConsultButton } from "@/components/fila/JoinConsultButton";
 export default function FilaScreen({ consultationId }: { consultationId?: string }) {
   return (
     <>
+    <LogoutButton />
     <div className="mobile-frame-wrap">
         <div className="mobile-frame">
           <div className="mobile-status">

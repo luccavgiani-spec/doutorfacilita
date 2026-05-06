@@ -1,4 +1,5 @@
 import { JoinConsultButton } from "@/components/fila/JoinConsultButton";
+import LogoutButton from "@/components/auth/LogoutButton";
 
 /**
  * Fila desktop (≥1024px). Card central com ring grande, info e checagem técnica.
@@ -6,6 +7,8 @@ import { JoinConsultButton } from "@/components/fila/JoinConsultButton";
  */
 export default function FilaScreenDesktop({ consultationId }: { consultationId?: string }) {
   return (
+    <>
+    <LogoutButton />
     <div className="fila-d">
       <header className="fila-d-top">
         <div className="fila-d-top-inner">
@@ -139,5 +142,6 @@ export default function FilaScreenDesktop({ consultationId }: { consultationId?:
         </div>
       </main>
     </div>
+    </>
   );
 }

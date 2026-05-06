@@ -1,4 +1,5 @@
 import { CallNextButton } from "@/components/cockpit/CallNextButton";
+import LogoutButton from "@/components/auth/LogoutButton";
 
 /**
  * Tela Cockpit — Cockpit do médico — desktop (rota /cockpit)
@@ -8,6 +9,7 @@ import { CallNextButton } from "@/components/cockpit/CallNextButton";
 export default function CockpitScreen({ consultationId }: { consultationId?: string }) {
   return (
     <>
+    <LogoutButton />
     <div className="cockpit-desktop">
     
         <div className="doc-top">

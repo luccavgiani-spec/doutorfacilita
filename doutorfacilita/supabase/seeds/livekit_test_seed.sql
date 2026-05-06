@@ -20,11 +20,19 @@
 -- pgcrypto must be installed (it is, via migration 001).
 
 -- ─── 1. Auth users ────────────────────────────────────────────────
+-- IMPORTANTE: GoTrue (auth API) não tolera NULL nas colunas *_token quando
+-- o usuário é inserido manualmente — gera "Database error querying schema"
+-- no signin. Por isso preenchemos com '' explicitamente.
 INSERT INTO auth.users (
   instance_id, id, aud, role,
   email, encrypted_password, email_confirmed_at,
   created_at, updated_at,
-  raw_app_meta_data, raw_user_meta_data, is_super_admin, is_sso_user, is_anonymous
+  raw_app_meta_data, raw_user_meta_data,
+  is_super_admin, is_sso_user, is_anonymous,
+  confirmation_token, recovery_token,
+  email_change_token_new, email_change,
+  phone_change, phone_change_token,
+  email_change_token_current, reauthentication_token
 ) VALUES
 (
   '00000000-0000-0000-0000-000000000000',
@@ -35,7 +43,8 @@ INSERT INTO auth.users (
   now(), now(), now(),
   '{"provider":"email","providers":["email"]}',
   '{"full_name":"Dr. Carlos Mendes","role":"doctor"}',
-  false, false, false
+  false, false, false,
+  '', '', '', '', '', '', '', ''
 ),
 (
   '00000000-0000-0000-0000-000000000000',
@@ -46,11 +55,20 @@ INSERT INTO auth.users (
   now(), now(), now(),
   '{"provider":"email","providers":["email"]}',
   '{"full_name":"Maria Almeida","role":"patient"}',
-  false, false, false
+  false, false, false,
+  '', '', '', '', '', '', '', ''
 )
 ON CONFLICT (id) DO UPDATE SET
   encrypted_password = EXCLUDED.encrypted_password,
   email_confirmed_at = EXCLUDED.email_confirmed_at,
+  confirmation_token = '',
+  recovery_token = '',
+  email_change_token_new = '',
+  email_change = '',
+  phone_change = '',
+  phone_change_token = '',
+  email_change_token_current = '',
+  reauthentication_token = '',
   updated_at = now();
 
 -- ─── 2. Auth identities (needed for password sign-in to work) ─────
