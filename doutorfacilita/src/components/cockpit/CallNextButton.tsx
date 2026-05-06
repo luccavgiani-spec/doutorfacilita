@@ -35,7 +35,18 @@ export function CallNextButton({ consultationId, className, label = "Chamar pró
       return;
     }
     setToast({ kind: "loading" });
-    const supabase = createClient();
+    let supabase;
+    try {
+      supabase = createClient();
+    } catch (err) {
+      setToast({
+        kind: "error",
+        message:
+          "NEXT_PUBLIC_SUPABASE_URL/ANON_KEY ausentes em .env.local — " +
+          (err instanceof Error ? err.message : String(err)),
+      });
+      return;
+    }
     const { data, error } = await supabase.functions.invoke("create_enter_doc", {
       body: { consultation_id: consultationId },
     });

@@ -15,6 +15,14 @@ type Status =
   | { kind: "joining" }
   | { kind: "error"; message: string };
 
+function tryCreateClient() {
+  try {
+    return createClient();
+  } catch (err) {
+    return err instanceof Error ? err : new Error(String(err));
+  }
+}
+
 /**
  * Botão da fila do paciente.
  *
@@ -30,12 +38,20 @@ type Status =
  */
 export function JoinConsultButton({ consultationId, variant }: Props) {
   const [status, setStatus] = useState<Status>({ kind: "checking" });
-  const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
+  const supabaseRef = useRef<ReturnType<typeof createClient> | Error | null>(null);
 
-  if (!supabaseRef.current) supabaseRef.current = createClient();
+  if (!supabaseRef.current) supabaseRef.current = tryCreateClient();
   const supabase = supabaseRef.current;
+  const supabaseReady = !(supabase instanceof Error);
 
   useEffect(() => {
+    if (!supabaseReady) {
+      setStatus({
+        kind: "error",
+        message: "NEXT_PUBLIC_SUPABASE_URL/ANON_KEY ausentes em .env.local",
+      });
+      return;
+    }
     if (!consultationId) {
       setStatus({ kind: "error", message: "consultation_id ausente (?consultation=…)" });
       return;
@@ -43,10 +59,13 @@ export function JoinConsultButton({ consultationId, variant }: Props) {
 
     let cancelled = false;
 
+    // Narrowed: supabaseReady is true → supabase is the client.
+    const sb = supabase as ReturnType<typeof createClient>;
+
     // Initial fetch covers the case where the doctor already called
     // before the patient opened this page.
     (async () => {
-      const { data, error } = await supabase
+      const { data, error } = await sb
         .from("consultations")
         .select("doctor_called_at")
         .eq("id", consultationId)
@@ -65,7 +84,7 @@ export function JoinConsultButton({ consultationId, variant }: Props) {
     })();
 
     // Realtime: flip to "ready" when doctor_called_at lands.
-    const channel = supabase
+    const channel = sb
       .channel(`consultation:${consultationId}`)
       .on(
         "postgres_changes",
@@ -87,14 +106,15 @@ export function JoinConsultButton({ consultationId, variant }: Props) {
 
     return () => {
       cancelled = true;
-      supabase.removeChannel(channel);
+      sb.removeChannel(channel);
     };
-  }, [consultationId, supabase]);
+  }, [consultationId, supabase, supabaseReady]);
 
   async function handleClick() {
-    if (!consultationId || status.kind !== "ready") return;
+    if (!consultationId || status.kind !== "ready" || !supabaseReady) return;
+    const sb = supabase as ReturnType<typeof createClient>;
     setStatus({ kind: "joining" });
-    const { data, error } = await supabase.functions.invoke("get_patient_token", {
+    const { data, error } = await sb.functions.invoke("get_patient_token", {
       body: { consultation_id: consultationId },
     });
     if (error) {
