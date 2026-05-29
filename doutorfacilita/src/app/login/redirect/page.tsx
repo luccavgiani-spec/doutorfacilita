@@ -1,8 +1,13 @@
 import { redirect } from "next/navigation";
 import { getUserRole } from "@/lib/auth/getUserRole";
+import { getAuthUser } from "@/lib/auth/getAuthUser";
+import { hasConsultaPaga } from "@/lib/consultas/hasConsultaPaga";
 
-// TODO(fase-1): substituir por auth completa.
-
+// Cérebro do funil pós-login.
+//   doctor  → /cockpit (com consulta ativa se houver)
+//   patient → tem consulta paga? → /fila?consultation=<id>
+//             senão                → /checkout
+//   sem perfil → tela explicativa abaixo (fallback)
 export default async function LoginRedirectPage() {
   const { role, consultationId } = await getUserRole();
 
@@ -10,7 +15,10 @@ export default async function LoginRedirectPage() {
     redirect(consultationId ? `/cockpit?consultation=${consultationId}` : "/cockpit");
   }
   if (role === "patient") {
-    redirect(consultationId ? `/fila?consultation=${consultationId}` : "/fila");
+    const user = await getAuthUser();
+    const consulta = user ? await hasConsultaPaga(user.id) : null;
+    if (consulta) redirect(`/fila?consultation=${consulta.id}`);
+    redirect("/checkout");
   }
 
   return (

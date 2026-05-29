@@ -5,7 +5,13 @@ import LogoutButton from "@/components/auth/LogoutButton";
  * Fila desktop (≥1024px). Card central com ring grande, info e checagem técnica.
  * Estilos com prefixo `fila-d-*` em globals.css (Seção 5).
  */
-export default function FilaScreenDesktop({ consultationId }: { consultationId?: string }) {
+export default function FilaScreenDesktop({
+  consultationId,
+  onEnterCall,
+}: {
+  consultationId?: string;
+  onEnterCall?: () => void;
+}) {
   return (
     <>
     <LogoutButton />
@@ -68,7 +74,11 @@ export default function FilaScreenDesktop({ consultationId }: { consultationId?:
 
           <div className="fila-d-actions">
             <button className="fila-d-cancel">Cancelar consulta</button>
-            <JoinConsultButton consultationId={consultationId} variant="desktop" />
+            <JoinConsultButton
+              consultationId={consultationId}
+              variant="desktop"
+              onEnterCall={onEnterCall}
+            />
           </div>
         </div>
 

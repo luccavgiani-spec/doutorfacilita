@@ -31,6 +31,15 @@ npm run dev
 
 Abre em http://localhost:3000
 
+## Integração Mevo
+
+Receita digital embutida no Cockpit. Infra pronta — falta só a credencial
+real (`MEVO_AUTH_B64`). Setup, migrations, Edge Functions, env vars e
+checklist em [`docs/INTEGRACAO_MEVO.md`](docs/INTEGRACAO_MEVO.md).
+
+Secrets do Supabase: `MEVO_BASE_URL`, `MEVO_AUTH_B64`, `MEVO_SUBPARCEIRO`,
+`MEVO_LOGO_URL`, `MEVO_COR_PRIMARIA`, `MEVO_COR_SECUNDARIA`.
+
 ## Compliance
 
 - **CFM 2.314/2022** — teleconsulta com termo de consentimento

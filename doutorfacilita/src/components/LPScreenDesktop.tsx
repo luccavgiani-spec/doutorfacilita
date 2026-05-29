@@ -21,9 +21,9 @@ export default function LPScreenDesktop() {
             <a href="#como-funciona">Como funciona</a>
             <a href="#beneficios">Por que nós</a>
             <a href="#precos">Preços</a>
-            <a href="#" className="lp-d-nav-login">Entrar</a>
+            <Link href="/login" className="lp-d-nav-login">Entrar</Link>
           </nav>
-          <Link href="/fila" className="lp-d-nav-cta">
+          <Link href="/login" className="lp-d-nav-cta">
             Consultar agora
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
           </Link>

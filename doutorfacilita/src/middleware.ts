@@ -16,12 +16,17 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Match em todas as rotas exceto:
-     * - _next/static (assets)
-     * - _next/image (imagens otimizadas)
-     * - favicon.ico
-     * - imagens (svg, png, jpg, etc)
+     * O middleware só roda nas rotas que dependem de sessão Supabase
+     * (refresh de token + guards). A landing "/" e páginas estáticas do
+     * protótipo NÃO precisam — evitar rodá-lo lá tira uma ida à rede
+     * Supabase de cada navegação por essas áreas.
      */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/cockpit/:path*",
+    "/fila/:path*",
+    "/consulta/:path*",
+    "/checkout/:path*",
+    "/area-do-medico/:path*",
+    "/login/:path*",
+    "/login",
   ],
 };

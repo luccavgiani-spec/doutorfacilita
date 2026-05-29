@@ -1,0 +1,560 @@
+============================================================
+ DOUTOR FACILITA — HANDOFF PARA NOVA SESSÃO CLAUDE
+ Atualizado: 2026-05-29
+ Projeto Supabase: tylpojscdbkzulykdguv (sa-east-1)
+============================================================
+
+Este documento descreve TUDO o que existe hoje no projeto.
+Cole no início da próxima conversa pra que o Claude entenda
+o estado atual sem precisar reexplorar o repositório.
+
+# ─────────────────────────────────────────────────────────────
+# 1. STACK & ESTRUTURA
+# ─────────────────────────────────────────────────────────────
+
+- Next.js 15.5.16 (App Router) em TypeScript estrito
+- React 18.3.1
+- Tailwind 3.4 (paleta Google: bg-blue/red/yellow/green + mevo-purple)
+- Fontes: DM Sans (texto) + Caveat (acento manuscrito)
+- Supabase (@supabase/ssr 0.5 + @supabase/supabase-js 2.46)
+- LiveKit (@livekit/components-react 2.6, livekit-client 2.7, livekit-server-sdk 2 nas edge)
+- Mercado Pago (server SDK ^3.0 — wrapper pronto, stub ativo)
+- React Hook Form 7.76 + Zod 4.4 + @hookform/resolvers
+- Recharts 3.8 (gráficos do /admin)
+
+Raiz do projeto Next: doutorfacilita/doutorfacilita/
+
+Estrutura principal de pastas:
+  src/app/                 — rotas (App Router)
+  src/components/          — componentes (admin/, cockpit/, fila/, consulta/, cadastro/, checkout/, ui/, auth/, area-do-medico/, lp/)
+  src/lib/
+    supabase/              — clientes (server.ts, client.ts, middleware.ts, admin.ts)
+    auth/                  — getAuthUser, getUserRole
+    admin/                 — audit.ts, timeseries.ts
+    consultas/             — hasConsultaPaga.ts (fonte única "consulta paga")
+    forms/                 — masks, validators, schemas zod
+    payments/              — mercadopago.ts (wrapper)
+    mevo/                  — types
+  src/hooks/               — useDebouncedCallback, useCpfCheck, useMevoPrescricao
+  src/mocks/               — dados mockados (RelatoriosDashboard)
+  supabase/migrations/     — migrations versionadas (015 → 037)
+  supabase/functions/      — edge functions (LiveKit + Mevo)
+  public/assets/           — logos (mevo-logo.png, prontia-logo.png)
+
+# ─────────────────────────────────────────────────────────────
+# 2. VARIÁVEIS DE AMBIENTE
+# ─────────────────────────────────────────────────────────────
+
+.env.local (frontend + server actions):
+  NEXT_PUBLIC_SUPABASE_URL=https://tylpojscdbkzulykdguv.supabase.co
+  NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+  SUPABASE_SERVICE_ROLE_KEY=...        (server actions admin: invite/quickCreate)
+
+Mercado Pago (ainda não configurado — quando entrar, plugar):
+  MERCADOPAGO_ACCESS_TOKEN=APP_USR-...
+  NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY=APP_USR-...  (se usar Brick/Tokenizer)
+
+Secrets das Supabase Edge Functions (cadastradas no Dashboard Supabase):
+  LIVEKIT_API_KEY
+  LIVEKIT_API_SECRET
+  LIVEKIT_URL                 (wss://...livekit.cloud)
+  MEVO_BASE_URL               (homolog/prod)
+  MEVO_AUTH_B64               (NÃO configurado ainda — Mevo está em standby)
+  MEVO_SUBPARCEIRO
+  MEVO_LOGO_URL
+  MEVO_COR_PRIMARIA
+  MEVO_COR_SECUNDARIA
+  SUPABASE_URL                (auto-provido)
+  SUPABASE_SERVICE_ROLE_KEY   (auto-provido)
+
+# ─────────────────────────────────────────────────────────────
+# 3. ROTAS FRONTEND (App Router)
+# ─────────────────────────────────────────────────────────────
+
+PÚBLICAS:
+  /                         → landing (LPScreen mobile + LPScreenDesktop ≥1024px)
+  /login                    → form de login (email+senha)
+  /cadastrar                → wizard 4 etapas (RHF+zod) com signUp Supabase
+  /login/redirect           → "cérebro" do funil pós-login
+
+PACIENTE (guard server-side em cada page):
+  /checkout                 → tabs PIX/Cartão; finaliza compra (stub) e marca consulta in_queue
+  /fila                     → FilaShell client: fila visual + troca pra LiveKit quando "Entrar na Consulta"
+  /posconsulta              → mensagem WhatsApp + resumo + upsell/orderbump
+  /consulta?consultation=…  → fallback LiveKit fullscreen (não usado pelo fluxo principal)
+
+MÉDICO:
+  /cockpit                  → painel de atendimento (client; estado de chamada ativa)
+  /area-do-medico/perfil    → editar dados profissionais
+  /area-do-medico/relatorios→ dashboard de relatórios (hoje com mocks)
+
+ADMIN (guard via has_role('admin') no layout):
+  /admin                    → home: ações rápidas + KPIs + gráficos + tabela vendas
+  /admin/medicos            → lista + modal "Novo médico" + toggles de papéis
+  /admin/medicos/[id]       → KPIs do médico + gráficos atendimentos/receita por dia
+  /admin/pacientes          → lista + KPIs + gráfico novos pacientes + edit modal
+  /admin/pacientes/[id]     → detalhe paciente
+  /admin/mevo               → config detalhada Mevo
+  /admin/templates          → lista templates de prontuário
+  /admin/templates/novo     → criar novo
+  /admin/templates/[id]     → editor (com upload de anexo PDF/Word + variáveis {{var}})
+  /admin/integracoes        → 3 cards grandes Mevo/Prontia/LiveKit + dashboard Prontia
+
+# ─────────────────────────────────────────────────────────────
+# 4. FLUXO COMPLETO PACIENTE
+# ─────────────────────────────────────────────────────────────
+
+  1. Landing (/) → CTA "Consultar agora" leva pra /login
+  2. /login → "Cadastre-se" → /cadastrar
+  3. /cadastrar (wizard 4 etapas):
+       Etapa 1: Dados Pessoais (nome, sobrenome, email, celular*, data nasc, gênero)
+       Etapa 2: Endereço (CEP autofill via viacep.com.br, logradouro/número/etc)
+       Etapa 3: Documentos (CPF com dígito verificador + alergias chips)
+       Etapa 4: Segurança (senha + checklist + contato emergência + aceite termos)
+     → supabase.auth.signUp() com metadata completo
+     → trigger handle_new_user materializa public.patients + user_roles role='patient'
+  4. /login/redirect (server) → detecta role:
+       doctor   → /cockpit
+       patient  → hasConsultaPaga ? /fila : /checkout
+  5. /checkout → tabs PIX/Cartão (UI completa, valores compatíveis com MP)
+     → server action finalizarCompra(payload):
+         - cria consultation status='created'
+         - chama createPayment() (stub: gera STUB-PIX-… ou STUB-CARD-…)
+         - marca status='in_queue', paid_at, queued_at, payment_id
+         - redirect /fila?consultation=<id>
+     → feature flag 'checkout_stub_payment' = true (DEV); desligar em prod
+  6. /fila (FilaShell client):
+       - JoinConsultButton: estado 'waiting' → escuta postgres_changes em
+         consultations filtrado por id; quando doctor_called_at vira não-null,
+         estado vira 'ready'
+       - Label muda pra "Entrar na Consulta (30s)" com countdown
+       - Auto-redirect em 30s (ou clique antes) → ConsultaLive renderiza
+         LiveKitRoom fullscreen (video + audio publicados automaticamente)
+  7. LiveKit conecta na sala criada pelo create_enter_doc; quando médico
+     encerra (end_consultation deleta a sala), paciente recebe Disconnected
+     → router.push("/posconsulta")
+  8. /posconsulta: card WhatsApp com número mascarado + resumo 4 etapas +
+     coluna lateral com 4 cards upsell (Pacote família, Exames, Reconsulta,
+     Indique e ganhe). CTAs apontam pra /fila por enquanto (rotas futuras)
+
+# ─────────────────────────────────────────────────────────────
+# 5. FLUXO COMPLETO MÉDICO (cockpit)
+# ─────────────────────────────────────────────────────────────
+
+  1. /cockpit (CockpitScreen client component):
+       Coluna esquerda  : CockpitFila (lista in_queue em tempo real via realtime)
+       Coluna central   : visor LiveKit embedded + Mevo card
+       Coluna direita   : ChartPanel (3 abas: Prontuário / Histórico / Anamnese)
+  2. CockpitFila: SELECT consultations onde status='in_queue' AND doctor_id IS NULL
+       - Subscribe postgres_changes em consultations (event='*') → refetch
+       - Realtime funciona porque consultations tem REPLICA IDENTITY FULL (mig.034)
+       - Tick a cada 30s pra atualizar "Aguardando há Xmin"
+       - Card #1 da fila ganha botão "Chamar próximo"
+  3. CallNextButton → invoca edge function create_enter_doc:
+       - Marca consultation: doctor_id=self, doctor_called_at=now, status=in_progress,
+         livekit_room_name='consultation_<id>'
+       - Gera AccessToken do doctor (TTL 2h, canPublish/canSubscribe)
+       - Devolve {room_name, token, livekit_url}
+     → CockpitScreen seta activeCall e renderiza DoctorCallEmbedded no
+        doc-video-strip (LiveKitRoom + GridLayout + ParticipantTile + ControlBar minimal)
+  4. ChartPanel:
+       Aba Prontuário: SOAP (chief_complaint, history_present_illness,
+         physical_exam, diagnostic_hypothesis, cid10_codes, conduct).
+         Autosave debounced 800ms via upsert em medical_records.
+       Aba Histórico: SELECT consultations do mesmo paciente (cross-doctor
+         via RLS mig.035). Cada card abre drawer com medical_record completo +
+         lista de prescricoes_mevo + signed URLs dos PDFs em storage.
+       Aba Anamnese: edita campos persistentes em patients (alergias,
+         medical_history, family_history, current_medications). Autosave 800ms.
+     ChartPanel expõe flushPending() via useImperativeHandle.
+  5. Médico clica "Leave" no DoctorCallEmbedded:
+       - CockpitScreen.handleDoctorEndCall:
+           a) await chartRef.current?.flushPending() — salva edições em voo
+           b) setActiveCall(null) — UI volta ao estado vazio
+           c) invoke end_consultation em paralelo
+       - end_consultation: RoomServiceClient.deleteRoom (kicka paciente),
+         UPDATE consultations SET status='completed', ended_at, duration_seconds
+  6. Paciente recebe Disconnected do LiveKit → vai pra /posconsulta
+
+# ─────────────────────────────────────────────────────────────
+# 6. EDGE FUNCTIONS (Supabase, deployadas)
+# ─────────────────────────────────────────────────────────────
+
+create_enter_doc           v8  — Médico chama próximo, cria/reusa sala LiveKit
+get_patient_token          v8  — Paciente entra na sala, gera token
+end_consultation           v1  — Médico encerra, deleta sala + completed
+mevo-iniciar-prescricao    v7  — Abre modal Mevo (503 enquanto MEVO_AUTH_B64 ausente)
+mevo-reabrir-prescricao    v7
+mevo-salvar-documentos     v7  — Baixa PDFs Mevo (URL expira 10min) e arquiva no bucket
+
+Todas usam:
+  - JWT do user no Authorization header
+  - Validam ownership server-side
+  - Service role pra UPDATEs trustados depois da validação
+
+# ─────────────────────────────────────────────────────────────
+# 7. MIGRATIONS APLICADAS (públicas + RLS)
+# ─────────────────────────────────────────────────────────────
+
+(015–014 = histórico inicial não versionado neste repo; vivem só no remoto)
+
+015  add_livekit_call_fields              — doctor_called_at + REPLICA IDENTITY antiga + publication
+016  create_medico_profiles                — DROPPADA na 017
+017  merge_medico_profiles_into_doctors    — fonte única vira public.doctors
+018  extend_patients_for_mevo              — celular, endereco_completo, alergias[]
+019  create_prescricoes_mevo               — RLS doctor-scoped
+020  create_prescricoes_documentos
+021  create_prescricoes_storage_bucket     — bucket privado 'prescricoes-pdfs'
+022  extend_audit_action                   — enum += grant_role/revoke_role
+023  create_integration_configs            — Mevo/Prontia/LiveKit configs (jsonb seguro)
+024  create_feature_flags
+025  create_prontuario_templates           — templates SOAP
+026  create_v_admin_sales                  — view security_invoker
+027  create_v_admin_doctor_stats           — view agregada
+028  patients_signup_and_trigger           — handle_new_user + colunas emergency_*/terms_accepted_at
+029  seed_checkout_stub_flag               — feature_flag checkout_stub_payment=true
+030  consultations_patient_rls_for_checkout — paciente INSERT/UPDATE própria consulta
+031  doctor_reads_queue                    — RLS doctor lê fila aberta + patient da fila
+032  doctor_queue_use_current_doctor_id    — fix recursão (troca has_role por current_doctor_id IS NOT NULL)
+033  doctor_queue_policies_use_current_doctor_id (consolidação da 032)
+034  consultations_replica_identity_full   — realtime entrega UPDATE com RLS
+035  prontuario_anamnese_e_historico       — patients.medical_history/family/medications + RLS cross-consulta
+036  templates_attachment_and_storage      — attachment_path em prontuario_templates + bucket template-attachments
+037  prontia_encaminhamentos               — tabela + RLS admin + config estendida (valor_cobrado/repasse)
+
+# ─────────────────────────────────────────────────────────────
+# 8. TABELAS PRINCIPAIS DO BANCO (public)
+# ─────────────────────────────────────────────────────────────
+
+doctors              — médicos (user_id UNIQUE → auth.users)
+patients             — pacientes (user_id UNIQUE; extensões: celular,
+                       endereco_completo, alergias, allergies,
+                       address_line/complement/neighborhood/city/state/postal_code,
+                       medical_history, family_history, current_medications,
+                       emergency_contact_*, accepts_communications, terms_accepted_at)
+consultations        — enum consultation_status: created/paid/in_queue/in_progress/
+                       completed/cancelled/no_show/refunded. REPLICA IDENTITY FULL.
+medical_records      — SOAP por consulta (consultation_id UNIQUE)
+prescricoes_mevo     — prescrições Mevo (status: iniciada/finalizada/
+                       finalizada_com_erro/cancelada/excluida)
+prescricoes_documentos — PDFs Mevo (storage_path → bucket prescricoes-pdfs)
+user_roles           — RBAC (role IN patient/doctor/admin/support; soft-delete via revoked_at)
+audit_log            — append-only, trigger bloqueia UPDATE/DELETE
+integration_configs  — Mevo/Prontia/LiveKit (config jsonb sem secrets)
+feature_flags        — toggles dev/prod
+prontuario_templates — templates SOAP + attachment_path + variáveis {{var}}
+prontia_encaminhamentos — dashboard Prontia (cobrado/repasse/margem por linha)
+consents             — termos aceitos (compliance CFM/LGPD)
+prescription_files   — PDFs Mevo (versão legada/paralela das prescricoes_documentos)
+
+Views:
+v_admin_sales        — consultations + patient + doctor (security_invoker)
+v_admin_doctor_stats — agregados por médico
+
+Storage buckets:
+prescricoes-pdfs        — privado, RLS doctor da prescrição
+template-attachments    — privado, RLS admin gere / doctor lê
+
+# ─────────────────────────────────────────────────────────────
+# 9. RLS — POLICIES CHAVE
+# ─────────────────────────────────────────────────────────────
+
+Funções helpers (SECURITY DEFINER, sem recursão):
+  has_role(text)        — checa user_roles
+  current_doctor_id()   — uuid do doctor do user atual
+  current_patient_id()  — uuid do patient do user atual
+
+consultations:
+  - admin_all (admin)
+  - doctor_own (SELECT/UPDATE quando doctor_id = current_doctor_id())
+  - patient_own (SELECT)
+  - patient_insert (paciente cria a própria, mig.030)
+  - patient_update (paciente atualiza a própria)
+  - doctor_queue_view (mig.032: SELECT in_queue+doctor_id IS NULL se current_doctor_id IS NOT NULL)
+
+patients:
+  - admin_all
+  - patient_self_select (user_id = auth.uid())
+  - patient_self_update
+  - doctor_view (paciente cuja consulta está atribuída ao doctor)
+  - doctor_queue_view (mig.032: doctor da fila vê o lead aberto)
+  - doctor_update_anamnese (mig.035: doctor atualiza anamnese persistente)
+
+medical_records:
+  - records_doctor_own (ALL pro doctor da consulta)
+  - records_admin_select
+  - records_patient_view
+  - doctor_patient_history (mig.035: doctor vê histórico cross-consulta)
+
+prescricoes_mevo / prescricoes_documentos:
+  - doctor da prescrição (read/write)
+  - doctor da consulta atual do paciente (SELECT — histórico)
+
+# ─────────────────────────────────────────────────────────────
+# 10. INTEGRAÇÕES EXTERNAS
+# ─────────────────────────────────────────────────────────────
+
+LIVEKIT — totalmente integrado
+  Secrets já configurados nas Edge Functions
+  Vídeo embedded no cockpit + fullscreen pro paciente
+
+MEVO — código completo, em standby
+  Edge functions deployadas, retornam 503 quando MEVO_AUTH_B64 ausente
+  Quando configurar credenciais, fluxo passa a funcionar automaticamente
+  Painel admin /admin/mevo edita config NÃO sensível em integration_configs
+  Edge functions hoje leem do Deno.env — quando ligar painel, atualizar pra
+  ler DB-first com fallback pro env (a decisão "opção A" do ADMIN_MAPEAMENTO)
+
+MERCADO PAGO — SDK instalado, wrapper pronto, stub ativo
+  src/lib/payments/mercadopago.ts é o ÚNICO ponto a editar
+  Decisão arquitetural (confirmada pelo usuário):
+    - PIX     → Payments API   (POST /v1/payments, payment_method_id='pix')
+    - Cartão  → Orders API     (POST /v1/orders, com card token gerado no client)
+  Quando MERCADOPAGO_ACCESS_TOKEN entrar em env, descomentar bloco e tirar fallback
+  Snippets prontos já comentados no wrapper
+
+PRONTIA — override de redirecionamento
+  integration_configs.prontia_redirect.config = {
+    destino_url, valor_cobrado_cents, valor_pago_prontia_cents
+  }
+  prontia_encaminhamentos: tabela que registra cada redirect
+  Dashboard /admin/integracoes mostra KPIs (receita/repasse/margem) + lista
+  ⚠ Dispatcher real (middleware/edge que faça o 302) NÃO existe ainda —
+  quando criar, inserir uma linha em prontia_encaminhamentos antes do redirect
+
+VIACEP — pública, sem auth
+  Usada no wizard de cadastro pra autofill de endereço
+
+# ─────────────────────────────────────────────────────────────
+# 11. /admin (PAINEL ADMINISTRATIVO)
+# ─────────────────────────────────────────────────────────────
+
+LAYOUT:
+  AdminShell client com sidebar (Home/Médicos/Pacientes/Mevo/Templates/Integrações)
+  Guard server-side: rpc('has_role', {check_role:'admin'}) → redirect /cockpit
+
+HOME (/admin):
+  1ª seção  : QuickActionsPanel — botões grandes "Novo paciente" + "Consulta imediata"
+              (ambos abrem modal in-page; criação via service role)
+  KPIs      : receita realizada, estornada, vendas pagas, ticket médio,
+              pacientes ativos, médicos ativos, taxa no-show, concluídas no período
+  Gráficos  : receita por dia (line), novos pacientes por dia (area),
+              receita por médico (bar horizontal)
+  Vendas    : tabela paginada (v_admin_sales) com filtro busca+status; cada
+              linha tem botão "abrir" que abre SaleDetailModal (resumo,
+              método de pagamento, paciente/médico, linha do tempo)
+
+MÉDICOS (/admin/medicos):
+  Botão "+ Novo médico" abre modal NewDoctorButton in-page
+  Cadastro gera senha forte automática (14 chars), mostra pra copiar
+  Lista com toggles verde/cinza pra papéis (Admin ativável; Carteira/Agendamento disabled "em breve")
+  CPF check em tempo real (debounce 500ms) bloqueia botão se duplicado
+
+  Detalhe /admin/medicos/[id]:
+    KPIs do médico (atendimentos, receita, tempo médio, no-show)
+    Gráficos atendimentos/receita por dia
+    Bloco "Status do perfil" (has_role checks visuais)
+    Últimas 20 consultas + 20 prescrições Mevo
+
+PACIENTES (/admin/pacientes):
+  KPIs: total, novos no período, recorrentes (≥2 consultas), ticket médio
+  Gráfico novos pacientes por dia
+  Lista com coluna "editar" → EditPatientButton (modal completo via service role)
+  Quick actions compactas no header (Novo paciente / Consulta imediata)
+
+TEMPLATES (/admin/templates):
+  Lista + toggle ativo/inativo
+  Editor:
+    - Anexo de referência (upload PDF/Word → bucket template-attachments)
+    - Variáveis dinâmicas {{var}} clicáveis pra copiar
+      ({{nome_paciente}}, {{primeiro_nome}}, {{idade}}, {{cpf}}, {{data}},
+       {{hora}}, {{medico}}, {{especialidade}}, {{queixa}})
+    - Campos SOAP (chief_complaint, history_present_illness, etc.)
+    - CID-10 sugeridos (chips)
+    - Campos estruturados extras (key/label/type/options/required)
+
+INTEGRAÇÕES (/admin/integracoes):
+  3 cards GRANDES com logo + toggle direto:
+    - Mevo (logo /assets/mevo-logo.png) → link "Configurar Mevo"
+    - Prontia (logo /assets/prontia-logo.png) → editor de URL inline (modal)
+    - LiveKit → read-only (secrets gerenciados pela equipe)
+  Dashboard Prontia abaixo:
+    - 4 KPIs: encaminhamentos, receita gerada, repassado, margem
+    - "Calibrar valores": valor cobrado / repasse + margem prevista + salvar
+    - Tabela de encaminhamentos recentes (data, lead, valores, margem por linha, status)
+    - Botão "+ Simular encaminhamento (teste)" — popula a tabela
+    - Filtro de período 7/15/30/60/90 dias
+
+MEVO (/admin/mevo):
+  Card completo de config (MevoConfigCard) com:
+    ambiente, subparceiro, logo_url, cores, flags
+  ⚠ Aviso sobre credenciais sensíveis em secrets
+
+# ─────────────────────────────────────────────────────────────
+# 12. SERVER ACTIONS PRINCIPAIS
+# ─────────────────────────────────────────────────────────────
+
+src/app/admin/actions.ts:
+  saveProntiaConfig       — todos os campos do Prontia
+  saveProntiaUrl          — só URL
+  saveProntiaValores      — só valores (usado pelo dashboard)
+  registrarEncaminhamentoProntia — stub manual de teste
+  quickCreatePatient      — cria auth.users + via trigger materializa patients
+  quickCreateConsultation — insere consulta in_queue paid (lançamento manual)
+  adminUpdatePatient      — edita paciente (service role + audit)
+  checkCpfExists          — usado pelo hook useCpfCheck
+
+src/app/admin/medicos/actions.ts:
+  inviteDoctor            — auth.admin.createUser com senha forte, doctor+role
+  grantRole / revokeRole  — soft-delete via user_roles (audit grant_role/revoke_role)
+
+src/app/admin/templates/actions.ts:
+  createTemplate / updateTemplate / toggleTemplateAtivo / deleteTemplate
+
+src/app/admin/mevo/actions.ts:
+  saveMevoConfig          — edita integration_configs.mevo
+
+src/app/admin/integracoes/actions.ts:
+  toggleIntegrationEnabled — toggle genérico de integration_configs
+
+src/app/checkout/actions.ts:
+  finalizarCompra         — orquestra criação de consulta + pagamento
+
+# ─────────────────────────────────────────────────────────────
+# 13. SEEDS / DADOS DE TESTE EXISTENTES
+# ─────────────────────────────────────────────────────────────
+
+Usuários:
+  medico-teste@doutorfacilita.test  / Test1234!   (doctor + admin)
+  paciente-teste@doutorfacilita.test/ Test1234!   (patient — Maria Almeida)
+  luccavgiani@gmail.com                            (patient — Lucca, real)
+
+Anamnese persistente do Lucca:
+  Alergias: Dipirona, Penicilina
+  Medicações: Losartana 50mg, Sinvastatina 20mg, AAS 100mg
+  Antecedentes pessoais: HAS desde 2022, apendicectomia 2010, ex-tabagista
+  Antecedentes familiares: pai HAS+DM2, mãe dislipidemia, avô paterno IAM
+
+3 consultas históricas do Lucca com Dr. Carlos (completed):
+  - 62 dias atrás: gripe (J11.1, R50.9) + 1 receita
+  - 30 dias atrás: checkup (E78.0, I10, R73.9) + 1 receita + 1 exame
+  - 14 dias atrás: renovação losartana (I10) + 1 receita controle especial
+  (PDFs são paths sintéticos seed/lucca/... — signed URL falha graceful)
+
+7 encaminhamentos seed em prontia_encaminhamentos:
+  Total receita R$ 413 / repasse R$ 280 / margem R$ 133 (~32%)
+
+# ─────────────────────────────────────────────────────────────
+# 14. ESTADO ATUAL — O QUE FUNCIONA / O QUE É STUB
+# ─────────────────────────────────────────────────────────────
+
+✅ FUNCIONAL (end-to-end):
+  - Funil de cadastro (signup wizard + trigger handle_new_user)
+  - Login + redirect inteligente por role
+  - Checkout (stub de pagamento que sempre aprova)
+  - Fila do paciente com realtime
+  - Cockpit do médico com fila real, atendimento embedded,
+    ChartPanel (prontuário/histórico/anamnese) com autosave + flush no leave
+  - LiveKit videochamada (médico embedded, paciente fullscreen)
+  - end_consultation encerra sala + status=completed
+  - Pós-consulta com upsell
+  - /admin completo (KPIs, gráficos, cadastros, edição, integrações, dashboard Prontia)
+
+⚠ STUB / PENDÊNCIA DE INTEGRAÇÃO REAL:
+  - Mercado Pago: wrapper em src/lib/payments/mercadopago.ts retorna STUB-…
+    quando MERCADOPAGO_ACCESS_TOKEN ausente. Snippets prontos pra PIX (Payments)
+    e Cartão (Orders) já comentados — só destorcer e desligar feature flag
+    'checkout_stub_payment' em prod.
+  - Mevo: edge functions retornam 503 enquanto MEVO_AUTH_B64 ausente. Quando
+    configurar, prescrições passam a abrir modal real (UI já pronta no cockpit).
+  - Prontia dispatcher: o 302 real ainda não acontece. Quando implementar
+    (middleware/edge), inserir linha em prontia_encaminhamentos antes do redirect.
+  - "Encerrar e chamar próximo" no cockpit é mockado — só "Leave" da control
+    bar do LiveKit dispara end_consultation real.
+  - /area-do-medico/relatorios usa @/mocks/relatoriosMock (dados estáticos).
+  - Cards de upsell em /posconsulta (Família/Exames/Reconsulta/Indique e ganhe)
+    apontam pra /fila — rotas próprias ainda não existem.
+  - Cockpit não consome templates (admin cria, mas ChartPanel ainda não aplica).
+  - Storage docs de prescrições Mevo: signed URLs falham silenciosamente
+    pros seeds (paths sintéticos seed/lucca/…); funcionará com dados reais.
+
+# ─────────────────────────────────────────────────────────────
+# 15. DECISÕES ARQUITETURAIS CHAVE (registradas)
+# ─────────────────────────────────────────────────────────────
+
+- Senha forte gerada pelo admin no cadastro de médico (vs invite por email)
+- Modal in-page pra cadastro (vs página dedicada)
+- Toggle direto + URL via modal separado nas integrações (vs form único)
+- Flush imediato do ChartPanel no encerramento (via useImperativeHandle)
+  → garante persistência de qualquer edição em voo no debounce de 800ms
+- ChartPanel: prontuário POR CONSULTA (medical_records),
+              anamnese POR PACIENTE (patients) — campos persistem entre consultas
+- Variáveis de template via sintaxe {{var}} (substituição no cockpit, ainda não impl.)
+- has_role usa user_roles (NÃO doctors) — mas RLS de fila usa current_doctor_id
+  IS NOT NULL pra evitar dependência circular
+- REPLICA IDENTITY FULL em consultations pra realtime entregar UPDATE com RLS
+- Topic único por mount no Realtime (crypto.randomUUID()) — evita o erro
+  "cannot add postgres_changes after subscribe()" do Strict Mode em dev
+- CPF check em tempo real (debounce 500ms) bloqueia botão antes do submit
+- Service role isolada em src/lib/supabase/admin.ts — só server actions usam
+
+# ─────────────────────────────────────────────────────────────
+# 16. COMO RODAR LOCALMENTE
+# ─────────────────────────────────────────────────────────────
+
+  cd doutorfacilita
+  npm install
+  # .env.local com NEXT_PUBLIC_SUPABASE_* e SUPABASE_SERVICE_ROLE_KEY
+  npm run dev
+  # → http://localhost:3000
+
+Pra testar fluxo médico+paciente em paralelo: aba normal logado como
+medico-teste e ABA ANÔNIMA (Ctrl+Shift+N) logado como paciente. Cookies
+isolam as sessões.
+
+Pra rodar migrations novas:
+  - via Supabase MCP (preferido): apply_migration por nome
+  - OU Dashboard SQL Editor (cola arquivo de supabase/migrations/...)
+  - OU `supabase db push` (precisa Docker rodando — não estava no ambiente)
+
+Pra erros do tipo "Application error" ou "__webpack_modules__[…] is not a
+function" depois de mexer em arquivos: limpar .next:
+  Remove-Item -Recurse -Force .next   (PowerShell)
+  rm -rf .next                         (bash)
+
+# ─────────────────────────────────────────────────────────────
+# 17. PRÓXIMOS PASSOS NATURAIS (não decididos ainda)
+# ─────────────────────────────────────────────────────────────
+
+- Plugar Mercado Pago real (PIX via Payments + Cartão via Orders)
+- Plugar Mevo real (MEVO_AUTH_B64 nos secrets)
+- Implementar dispatcher Prontia (middleware que insere em prontia_encaminhamentos
+  e retorna 302)
+- Botão "Encerrar e chamar próximo" no cockpit deve disparar end_consultation
+  + abrir a próxima consulta da fila automaticamente
+- Cockpit consumir templates: ChartPanel ler prontuario_templates ativos,
+  permitir "aplicar template" e substituir variáveis {{var}} pelos dados
+  do paciente
+- Rotas /familia, /exames, /reconsulta (CTAs da /posconsulta)
+- /admin/auditoria — viewer de audit_log
+- /area-do-medico/relatorios deixar de usar mocks
+- Telefone do paciente: forçar troca de senha no primeiro login do médico
+  cadastrado por admin (hoje a senha temporária permanece válida)
+
+# ─────────────────────────────────────────────────────────────
+# 18. INFRAESTRUTURA EXTERNA EM USO
+# ─────────────────────────────────────────────────────────────
+
+Supabase projeto: tylpojscdbkzulykdguv (sa-east-1)
+  Auth, Postgres, Storage, Edge Functions, Realtime
+  MCP do Supabase autorizado nesta sessão (database:read/write,
+  edge_functions:read/write, storage:read, secrets:read, etc.)
+
+Deploy frontend: Vercel (Root Directory = doutorfacilita/)
+LiveKit: cloud.livekit.io (secrets nas Edge Functions)
+Mevo: emr-homolog.nexodata.com.br (homolog)
+ViaCEP: viacep.com.br
+
+============================================================
+ FIM DO HANDOFF
+============================================================
