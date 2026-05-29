@@ -3,43 +3,56 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
+export type ActiveCallPayload = {
+  consultationId: string;
+  token: string;
+  url: string;
+  roomName: string;
+};
+
 type Props = {
   consultationId?: string;
   className?: string;
   label?: string;
+  /** Quando definido, é chamado em vez de fazer toast/navegar.
+   *  Permite ao CockpitScreen montar o LiveKit embedded na hora. */
+  onSuccess?: (payload: ActiveCallPayload) => void;
 };
 
-type ToastState =
+type State =
   | { kind: "idle" }
   | { kind: "loading" }
-  | { kind: "success"; roomName: string }
   | { kind: "error"; message: string };
 
 /**
  * Botão "Chamar próximo" do médico no cockpit.
  *
- * onClick: invoca a edge function `create_enter_doc` passando consultation_id;
- * faz console.log do retorno (room_name, token, livekit_url) — não monta
- * <LiveKitRoom> ainda. Mostra toast inline simples.
+ * onClick: invoca a edge function `create_enter_doc`. Em sucesso, chama
+ * `onSuccess({consultationId, token, url, roomName})` pra que o CockpitScreen
+ * monte o LiveKit embedded no doc-video-strip. Não navega.
  *
- * Idempotente no backend (clicar 2x não recria sala). UI desabilita durante
- * a invocação pra evitar duplo-clique.
+ * create_enter_doc é idempotente — clicar 2× não recria sala.
  */
-export function CallNextButton({ consultationId, className, label = "Chamar próximo" }: Props) {
-  const [toast, setToast] = useState<ToastState>({ kind: "idle" });
-  const disabled = toast.kind === "loading" || !consultationId;
+export function CallNextButton({
+  consultationId,
+  className,
+  label = "Chamar próximo",
+  onSuccess,
+}: Props) {
+  const [state, setState] = useState<State>({ kind: "idle" });
+  const disabled = state.kind === "loading" || !consultationId;
 
   async function handleClick() {
     if (!consultationId) {
-      setToast({ kind: "error", message: "consultation_id ausente na URL (?consultation=…)" });
+      setState({ kind: "error", message: "consultation_id ausente" });
       return;
     }
-    setToast({ kind: "loading" });
+    setState({ kind: "loading" });
     let supabase;
     try {
       supabase = createClient();
     } catch (err) {
-      setToast({
+      setState({
         kind: "error",
         message:
           "NEXT_PUBLIC_SUPABASE_URL/ANON_KEY ausentes em .env.local — " +
@@ -51,13 +64,21 @@ export function CallNextButton({ consultationId, className, label = "Chamar pró
       body: { consultation_id: consultationId },
     });
     if (error) {
-      console.error("[create_enter_doc] erro:", error, data);
-      setToast({ kind: "error", message: error.message });
+      setState({ kind: "error", message: error.message });
       return;
     }
-    console.log("[create_enter_doc] sucesso:", data);
-    const roomName = (data as { room_name?: string } | null)?.room_name ?? "?";
-    setToast({ kind: "success", roomName });
+    const d = data as { room_name?: string; token?: string; livekit_url?: string };
+    if (!d?.token || !d?.livekit_url || !d?.room_name) {
+      setState({ kind: "error", message: "Resposta inválida da edge function" });
+      return;
+    }
+    setState({ kind: "idle" });
+    onSuccess?.({
+      consultationId,
+      token: d.token,
+      url: d.livekit_url,
+      roomName: d.room_name,
+    });
   }
 
   return (
@@ -69,66 +90,23 @@ export function CallNextButton({ consultationId, className, label = "Chamar pró
         className={className ?? "queue-card-btn"}
         style={disabled ? { opacity: 0.6, cursor: "not-allowed" } : undefined}
       >
-        {toast.kind === "loading" ? "Chamando..." : label}
+        {state.kind === "loading" ? "Chamando..." : label}
       </button>
-      {toast.kind !== "idle" && toast.kind !== "loading" && (
-        <Toast state={toast} onClose={() => setToast({ kind: "idle" })} />
+      {state.kind === "error" && (
+        <div
+          role="alert"
+          style={{
+            marginTop: 6,
+            fontSize: 11,
+            color: "var(--red)",
+            background: "var(--red-l)",
+            padding: "6px 8px",
+            borderRadius: 6,
+          }}
+        >
+          {state.message}
+        </div>
       )}
     </>
-  );
-}
-
-function Toast({
-  state,
-  onClose,
-}: {
-  state: Extract<ToastState, { kind: "success" } | { kind: "error" }>;
-  onClose: () => void;
-}) {
-  const isError = state.kind === "error";
-  return (
-    <div
-      style={{
-        position: "fixed",
-        top: 16,
-        right: 16,
-        zIndex: 9999,
-        padding: "12px 16px",
-        borderRadius: 12,
-        background: isError ? "var(--red-l)" : "var(--green-l)",
-        border: `1px solid ${isError ? "var(--red)" : "var(--green)"}`,
-        color: isError ? "var(--red)" : "var(--green-d)",
-        fontSize: 13,
-        fontWeight: 600,
-        boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
-        maxWidth: 360,
-        display: "flex",
-        gap: 12,
-        alignItems: "center",
-      }}
-    >
-      <span style={{ flex: 1 }}>
-        {isError
-          ? `Erro: ${state.message}`
-          : `Sala criada — paciente foi notificado (${state.roomName.slice(0, 24)}${
-              state.roomName.length > 24 ? "…" : ""
-            })`}
-      </span>
-      <button
-        type="button"
-        onClick={onClose}
-        style={{
-          background: "transparent",
-          border: "none",
-          color: "inherit",
-          fontSize: 18,
-          cursor: "pointer",
-          lineHeight: 1,
-        }}
-        aria-label="Fechar"
-      >
-        ×
-      </button>
-    </div>
   );
 }

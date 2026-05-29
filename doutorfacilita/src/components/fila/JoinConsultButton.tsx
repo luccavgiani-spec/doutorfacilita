@@ -1,11 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+
+const AUTO_REDIRECT_MS = 30_000;
 
 type Props = {
   consultationId?: string;
   variant: "mobile" | "desktop";
+  /** Quando definido, é chamado em vez de navegar pra /consulta.
+   *  Usado pelo FilaShell pra trocar o conteúdo da /fila pelo LiveKit. */
+  onEnterCall?: () => void;
 };
 
 type Status =
@@ -36,8 +42,10 @@ function tryCreateClient() {
  * onClick em ready: invoca get_patient_token edge function e console.log do
  * retorno. Não navega ainda — render de vídeo fica pra próxima fase.
  */
-export function JoinConsultButton({ consultationId, variant }: Props) {
+export function JoinConsultButton({ consultationId, variant, onEnterCall }: Props) {
+  const router = useRouter();
   const [status, setStatus] = useState<Status>({ kind: "checking" });
+  const [countdown, setCountdown] = useState<number | null>(null);
   const supabaseRef = useRef<ReturnType<typeof createClient> | Error | null>(null);
 
   if (!supabaseRef.current) supabaseRef.current = tryCreateClient();
@@ -88,11 +96,15 @@ export function JoinConsultButton({ consultationId, variant }: Props) {
   }, [consultationId, supabase, supabaseReady]);
 
   // Realtime: registra .on() ANTES de .subscribe() (Supabase Realtime v2).
+  // Sufixo único no topic evita "cannot add postgres_changes after subscribe()"
+  // quando React 18 Strict Mode roda o effect 2× e o Supabase-JS reaproveita
+  // um canal pelo nome (o segundo mount pegaria o canal já subscrito).
   useEffect(() => {
     if (!supabaseReady || !consultationId) return;
     const sb = supabase as ReturnType<typeof createClient>;
 
-    const channel = sb.channel(`consultation:${consultationId}`);
+    const topic = `consultation:${consultationId}:${crypto.randomUUID()}`;
+    const channel = sb.channel(topic);
 
     channel.on(
       "postgres_changes",
@@ -125,20 +137,36 @@ export function JoinConsultButton({ consultationId, variant }: Props) {
   }, [consultationId, supabase, supabaseReady]);
 
   async function handleClick() {
-    if (!consultationId || status.kind !== "ready" || !supabaseReady) return;
-    const sb = supabase as ReturnType<typeof createClient>;
+    if (!consultationId || (status.kind !== "ready" && status.kind !== "joining")) return;
     setStatus({ kind: "joining" });
-    const { data, error } = await sb.functions.invoke("get_patient_token", {
-      body: { consultation_id: consultationId },
-    });
-    if (error) {
-      console.error("[get_patient_token] erro:", error, data);
-      setStatus({ kind: "error", message: error.message });
+    if (onEnterCall) {
+      onEnterCall();
       return;
     }
-    console.log("[get_patient_token] sucesso:", data);
-    setStatus({ kind: "ready" });
+    // Fallback: se ninguém passou callback, navega pra /consulta (compat).
+    router.push(`/consulta?consultation=${consultationId}`);
   }
+
+  // Auto-redirect: quando virar "ready", começa contagem de 30s. O timer é
+  // cancelado se o usuário clicar antes ou se o componente desmontar.
+  useEffect(() => {
+    if (status.kind !== "ready") {
+      setCountdown(null);
+      return;
+    }
+    setCountdown(Math.round(AUTO_REDIRECT_MS / 1000));
+    const tickId = window.setInterval(() => {
+      setCountdown((n) => (n === null ? null : Math.max(0, n - 1)));
+    }, 1000);
+    const redirectId = window.setTimeout(() => {
+      void handleClick();
+    }, AUTO_REDIRECT_MS);
+    return () => {
+      window.clearInterval(tickId);
+      window.clearTimeout(redirectId);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status.kind]);
 
   const ready = status.kind === "ready" || status.kind === "joining";
   const baseClass = variant === "mobile" ? "fila-m-join" : "fila-d-join";
@@ -146,9 +174,13 @@ export function JoinConsultButton({ consultationId, variant }: Props) {
     switch (status.kind) {
       case "checking": return "Verificando…";
       case "waiting": return "Aguardando médico";
-      case "joining": return "Carregando token…";
+      case "joining": return "Entrando na consulta…";
       case "error": return "Erro";
-      case "ready": default: return "Acessar consulta";
+      case "ready":
+      default:
+        return countdown !== null
+          ? `Entrar na Consulta (${countdown}s)`
+          : "Entrar na Consulta";
     }
   })();
 

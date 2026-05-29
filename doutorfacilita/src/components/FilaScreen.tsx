@@ -6,7 +6,13 @@ import LogoutButton from "@/components/auth/LogoutButton";
  * Convertida do protótipo telemed_v2.html mantendo classes legadas.
  * Estilos em src/app/globals.css.
  */
-export default function FilaScreen({ consultationId }: { consultationId?: string }) {
+export default function FilaScreen({
+  consultationId,
+  onEnterCall,
+}: {
+  consultationId?: string;
+  onEnterCall?: () => void;
+}) {
   return (
     <>
     <LogoutButton />
@@ -135,7 +141,11 @@ export default function FilaScreen({ consultationId }: { consultationId?: string
     
               <div className="fila-m-bottom-bar">
                 <button className="fila-m-cancel">Cancelar</button>
-                <JoinConsultButton consultationId={consultationId} variant="mobile" />
+                <JoinConsultButton
+                  consultationId={consultationId}
+                  variant="mobile"
+                  onEnterCall={onEnterCall}
+                />
               </div>
             </div>
           </div>

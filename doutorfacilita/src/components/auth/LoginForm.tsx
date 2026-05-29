@@ -1,10 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-
-// TODO(fase-1): substituir por auth completa com signup, recovery, magic link, etc.
 
 export default function LoginForm() {
   const [email, setEmail] = useState("");
@@ -35,76 +34,89 @@ export default function LoginForm() {
   }
 
   return (
-    <div
-      style={{
-        maxWidth: 360,
-        margin: "80px auto",
-        padding: 24,
-        fontFamily: "var(--font-dm-sans)",
-      }}
-    >
-      <h1 style={{ fontSize: 24, marginBottom: 24, fontWeight: 600 }}>Entrar (DEV)</h1>
-      <p style={{ fontSize: 13, color: "#666", marginBottom: 24 }}>
-        ⚠️ Página temporária de teste. Auth completa vem na Fase 1.
-      </p>
-      <form
-        onSubmit={handleSubmit}
-        style={{ display: "flex", flexDirection: "column", gap: 12 }}
-      >
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          autoComplete="username"
-          style={{
-            padding: 10,
-            border: "1px solid #ccc",
-            borderRadius: 6,
-            fontSize: 14,
-          }}
-        />
-        <input
-          type="password"
-          placeholder="Senha"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          autoComplete="current-password"
-          style={{
-            padding: 10,
-            border: "1px solid #ccc",
-            borderRadius: 6,
-            fontSize: 14,
-          }}
-        />
-        {error && <div style={{ color: "#d33", fontSize: 13 }}>{error}</div>}
-        <button
-          type="submit"
-          disabled={loading}
-          style={{
-            padding: 12,
-            background: "#4285F4",
-            color: "white",
-            border: "none",
-            borderRadius: 6,
-            fontSize: 14,
-            fontWeight: 600,
-            cursor: loading ? "wait" : "pointer",
-          }}
-        >
-          {loading ? "Entrando..." : "Entrar"}
-        </button>
-      </form>
-      <details style={{ marginTop: 24, fontSize: 12, color: "#888" }}>
-        <summary style={{ cursor: "pointer" }}>Credenciais de teste</summary>
-        <div style={{ marginTop: 8, lineHeight: 1.6 }}>
-          <strong>Médico:</strong> medico-teste@doutorfacilita.test / Test1234!
-          <br />
-          <strong>Paciente:</strong> paciente-teste@doutorfacilita.test / Test1234!
+    <div className="auth-shell">
+      <header className="auth-top">
+        <div className="auth-top-inner">
+          <Link href="/" className="logo-no" style={{ textDecoration: "none" }}>
+            <span className="dots">
+              <span></span><span></span><span></span><span></span>
+            </span>
+            <span className="no-word">nó</span> telemed
+          </Link>
+          <Link href="/cadastrar" className="auth-top-link">
+            Não tem conta? <b>Cadastre-se</b>
+          </Link>
         </div>
-      </details>
+        <div className="bar4">
+          <span></span><span></span><span></span><span></span>
+        </div>
+      </header>
+
+      <main className="auth-main">
+        <div className="auth-card">
+          <span className="auth-eyebrow">acesso</span>
+          <h1 className="auth-h1">entrar</h1>
+          <p className="auth-sub">
+            Bom te ver de volta. Entre com seu email e senha para continuar sua
+            consulta.
+          </p>
+
+          <form className="auth-form" onSubmit={handleSubmit} noValidate>
+            <div className="auth-field">
+              <label className="auth-label" htmlFor="email">Email</label>
+              <input
+                id="email"
+                className={`auth-input ${error ? "auth-input--error" : ""}`}
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="username"
+                placeholder="voce@exemplo.com"
+              />
+            </div>
+
+            <div className="auth-field">
+              <label className="auth-label" htmlFor="password">Senha</label>
+              <input
+                id="password"
+                className={`auth-input ${error ? "auth-input--error" : ""}`}
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+                placeholder="••••••••"
+              />
+            </div>
+
+            {error && (
+              <div className="auth-alert" role="alert">{error}</div>
+            )}
+
+            <button
+              type="submit"
+              className="auth-button auth-button--primary auth-button--block"
+              disabled={loading}
+            >
+              {loading ? "Entrando..." : "Entrar"}
+            </button>
+          </form>
+
+          <p className="auth-foot">
+            Ainda não tem conta? <Link href="/cadastrar">Criar conta</Link>
+          </p>
+
+          <details className="auth-details">
+            <summary>Credenciais de teste (dev)</summary>
+            <div className="auth-details-body">
+              <strong>Médico:</strong> medico-teste@doutorfacilita.test / Test1234!
+              <br />
+              <strong>Paciente:</strong> paciente-teste@doutorfacilita.test / Test1234!
+            </div>
+          </details>
+        </div>
+      </main>
     </div>
   );
 }
