@@ -1,12 +1,13 @@
 // ÚNICO ponto que define "consulta paga". Quando o modelo (avulsa vs
 // assinatura vs flag) for cravado pelos mantenedores, mudar SÓ aqui.
 //
-// Hoje: existe consulta com paid_at NOT NULL e status em ('paid','in_queue','in_progress').
+// Consulta paga = paid_at NOT NULL e status em ('paid','in_queue','in_progress','completed').
+// NUNCA tratar 'created' (pré-pagamento) nem cancelled/no_show/refunded como paga.
 import { createClient } from "@/lib/supabase/server";
 
 export type ConsultaAtiva = { id: string; status: string };
 
-const ATIVOS = ["paid", "in_queue", "in_progress"] as const;
+const ATIVOS = ["paid", "in_queue", "in_progress", "completed"] as const;
 
 export async function hasConsultaPaga(userId: string): Promise<ConsultaAtiva | null> {
   const supabase = await createClient();

@@ -949,7 +949,7 @@ body {
 
 .doc-main {
   grid-area: main; padding: 16px;
-  display: grid; grid-template-rows: 240px 1fr; gap: 12px; overflow: hidden;
+  display: grid; grid-template-rows: minmax(0, 1.7fr) minmax(0, 1fr); gap: 12px; overflow: hidden;
 }
 
 .doc-video-strip {
