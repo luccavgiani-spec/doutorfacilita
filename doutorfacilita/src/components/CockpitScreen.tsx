@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import DoctorMenu from "@/components/cockpit/DoctorMenu";
 import MevoPrescricaoCard from "@/components/cockpit/MevoPrescricaoCard";
 import CockpitFila from "@/components/cockpit/CockpitFila";
@@ -25,6 +25,46 @@ export default function CockpitScreen({
 }) {
   const [activeCall, setActiveCall] = useState<ActiveCallPayload | null>(null);
   const chartRef = useRef<ChartPanelHandle | null>(null);
+
+  // ── Split redimensionável vídeo ↔ prontuário/Mevo (vertical) ──────────
+  // Default dá MENOS espaço ao vídeo (38%) e MAIS ao painel Mevo (62%), para
+  // o iframe da Mevo (≥900px) caber confortavelmente. Persistido só em estado
+  // local (sem localStorage), como pedido.
+  const [videoPct, setVideoPct] = useState(38);
+  const mainRef = useRef<HTMLDivElement>(null);
+  const draggingRef = useRef(false);
+
+  const onDragMove = useCallback((e: MouseEvent) => {
+    if (!draggingRef.current || !mainRef.current) return;
+    const rect = mainRef.current.getBoundingClientRect();
+    const pct = ((e.clientY - rect.top) / rect.height) * 100;
+    setVideoPct(Math.min(80, Math.max(20, pct)));
+  }, []);
+
+  const stopDrag = useCallback(() => {
+    draggingRef.current = false;
+    document.body.style.userSelect = "";
+    document.body.style.cursor = "";
+  }, []);
+
+  const startDrag = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      draggingRef.current = true;
+      document.body.style.userSelect = "none";
+      document.body.style.cursor = "row-resize";
+    },
+    []
+  );
+
+  useEffect(() => {
+    window.addEventListener("mousemove", onDragMove);
+    window.addEventListener("mouseup", stopDrag);
+    return () => {
+      window.removeEventListener("mousemove", onDragMove);
+      window.removeEventListener("mouseup", stopDrag);
+    };
+  }, [onDragMove, stopDrag]);
 
   // ID efetivo da consulta ativa: a chamada em andamento se houver,
   // senão o que veio do server (in_progress prévio resolvido em /cockpit/page.tsx).
@@ -87,7 +127,15 @@ export default function CockpitScreen({
       {/* ═══════════════════════════════════════════════════ */}
       {/* MAIN — visor da telechamada + painel Mevo (embaixo)  */}
       {/* ═══════════════════════════════════════════════════ */}
-      <div className="doc-main">
+      <div
+        className="doc-main"
+        ref={mainRef}
+        style={{
+          gridTemplateRows: `minmax(0, ${videoPct}fr) 10px minmax(0, ${
+            100 - videoPct
+          }fr)`,
+        }}
+      >
         {activeCall ? (
           <DoctorCallEmbedded
             token={activeCall.token}
@@ -106,6 +154,17 @@ export default function CockpitScreen({
             </div>
           </div>
         )}
+
+        {/* Divisor redimensionável — arraste p/ dar mais espaço ao vídeo
+            ou ao painel Mevo/prontuário. */}
+        <div
+          className="doc-split-handle"
+          onMouseDown={startDrag}
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label="Redimensionar vídeo e prontuário"
+          title="Arraste para redimensionar"
+        />
 
         {/* ═══════════════════════════════════════════════════ */}
         {/* ACTIONS PANEL — EXPANDIDO COM CAPACIDADES MEVO        */}

@@ -955,8 +955,23 @@ body {
 
 .doc-main {
   grid-area: main; padding: 16px;
-  display: grid; grid-template-rows: minmax(0, 1.7fr) minmax(0, 1fr); gap: 12px; overflow: hidden;
+  /* grid-template-rows é controlado por estado (split redimensionável) via
+     inline style em CockpitScreen; o default JS dá menos altura ao vídeo
+     para sobrar espaço ao iframe da Mevo. */
+  display: grid; grid-template-rows: minmax(0, 1.7fr) 10px minmax(0, 1fr); gap: 12px; overflow: hidden;
 }
+
+/* Divisor arrastável entre o visor da chamada e o painel Mevo/prontuário. */
+.doc-split-handle {
+  align-self: stretch; cursor: row-resize;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 6px;
+}
+.doc-split-handle::before {
+  content: ''; width: 48px; height: 4px; border-radius: 100px;
+  background: var(--hborder2); transition: background 0.15s;
+}
+.doc-split-handle:hover::before { background: var(--blue); }
 
 .doc-video-strip {
   background: #1a1f24; border-radius: 14px; position: relative; overflow: hidden;
