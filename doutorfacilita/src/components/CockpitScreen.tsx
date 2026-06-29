@@ -24,6 +24,7 @@ export default function CockpitScreen({
   doctorSub: string;
 }) {
   const [activeCall, setActiveCall] = useState<ActiveCallPayload | null>(null);
+  const [finishing, setFinishing] = useState(false);
   const chartRef = useRef<ChartPanelHandle | null>(null);
 
   // ── Split redimensionável vídeo ↔ Mevo (vertical) ─────────────────────
@@ -93,6 +94,99 @@ export default function CockpitScreen({
       });
     } catch (err) {
       console.error("[CockpitScreen] end_consultation invoke failed:", err);
+    }
+  }
+
+  // ── "Encerrar e chamar o próximo" ─────────────────────────────────────
+  // (1) salva + finaliza o prontuário da consulta atual (nada se perde);
+  // (2) encerra a atual (end_consultation: status='completed', ended_at,
+  //     fecha sala LiveKit); (3) pega a PRÓXIMA da fila (in_queue sem médico)
+  //     na v_cockpit_fila; (4) faz o claim + inicia o vídeo via
+  //     create_enter_doc (mesmo caminho do "Chamar próximo": seta doctor_id +
+  //     status='in_progress' e devolve o token LiveKit). started_at=now() é
+  //     carimbado best-effort no claim. Fila vazia → só encerra (estado vazio).
+  async function handleFinishAndNext() {
+    if (finishing) return;
+    setFinishing(true);
+
+    let supabase: ReturnType<typeof createClient>;
+    try {
+      supabase = createClient();
+    } catch (err) {
+      console.error("[CockpitScreen] supabase init failed:", err);
+      setFinishing(false);
+      return;
+    }
+
+    const currentId = effectiveConsultationId;
+    try {
+      // 1) Persiste prontuário/anamnese em voo e finaliza o prontuário.
+      try {
+        await chartRef.current?.flushPending();
+        await chartRef.current?.finalize();
+      } catch (err) {
+        console.error("[CockpitScreen] flush/finalize prontuário failed:", err);
+      }
+
+      // 2) Encerra a consulta atual (idempotente; service role).
+      if (currentId) {
+        try {
+          await supabase.functions.invoke("end_consultation", {
+            body: { consultation_id: currentId },
+          });
+        } catch (err) {
+          console.error("[CockpitScreen] end_consultation failed:", err);
+        }
+      }
+      setActiveCall(null);
+
+      // 3) Próxima da fila: in_queue, ainda sem médico.
+      const { data: next, error: nextErr } = await supabase
+        .from("v_cockpit_fila")
+        .select("id, status, doctor_id, queued_at, created_at")
+        .eq("status", "in_queue")
+        .is("doctor_id", null)
+        .order("queued_at", { ascending: true, nullsFirst: false })
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (nextErr) {
+        console.error("[CockpitScreen] busca próxima da fila falhou:", nextErr);
+        return;
+      }
+      if (!next) return; // fila vazia → só encerrou; estado vazio.
+
+      // 4) Claim + inicia vídeo (create_enter_doc devolve o token LiveKit).
+      const { data, error } = await supabase.functions.invoke("create_enter_doc", {
+        body: { consultation_id: next.id },
+      });
+      if (error) {
+        console.error("[CockpitScreen] create_enter_doc falhou:", error);
+        return;
+      }
+      const d = data as { room_name?: string; token?: string; livekit_url?: string };
+      if (!d?.token || !d?.livekit_url || !d?.room_name) {
+        console.error("[CockpitScreen] resposta inválida de create_enter_doc");
+        return;
+      }
+
+      // started_at=now() best-effort (só se ainda não carimbado). O claim já
+      // foi feito pelo create_enter_doc; aqui apenas registra o início.
+      void supabase
+        .from("consultations")
+        .update({ started_at: new Date().toISOString() })
+        .eq("id", next.id)
+        .is("started_at", null);
+
+      setActiveCall({
+        consultationId: next.id,
+        token: d.token,
+        url: d.livekit_url,
+        roomName: d.room_name,
+      });
+    } finally {
+      setFinishing(false);
     }
   }
 
@@ -190,28 +284,17 @@ export default function CockpitScreen({
           {/* CTA Mevo + subtítulo dinâmico + lista de prescrições (client component) */}
           <MevoPrescricaoCard consultationId={effectiveConsultationId} />
 
-          {/* Tipos de documento disponíveis NA modal Mevo (informativo).
-              O médico NÃO escolhe o tipo aqui — a modal Mevo abre única e
-              o tipo é selecionado dentro dela. Lista fiel à doc v1.42 (p.18-19). */}
-          <div style={{ padding: "0 16px 16px" }}>
-            <details className="mevo-doctypes">
-              <summary>Tipos de documento disponíveis na modal Mevo</summary>
-              <div className="mevo-doctypes-list">
-                Receita simples · Controle especial · Manipulados<br />
-                Atestado · Solicitação de exame · Encaminhamento<br />
-                Laudo/Relatório · LME · Instrução
-              </div>
-              <div className="mevo-doctypes-note">
-                O tipo do documento é escolhido dentro da modal Mevo, não aqui.
-              </div>
-            </details>
-          </div>
-
           {/* Finalização */}
           <div className="actions-footer">
-            <button className="finish-btn">
+            <button
+              type="button"
+              className="finish-btn"
+              onClick={handleFinishAndNext}
+              disabled={finishing}
+              style={finishing ? { opacity: 0.6, cursor: "not-allowed" } : undefined}
+            >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-              Encerrar e chamar próximo
+              {finishing ? "Encerrando…" : "Encerrar e chamar próximo"}
             </button>
           </div>
 
