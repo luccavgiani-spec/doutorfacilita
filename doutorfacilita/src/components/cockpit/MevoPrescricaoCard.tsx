@@ -174,10 +174,12 @@ export default function MevoPrescricaoCard({
     }
 
     prescricaoAtivaRef.current = prescricaoId;
-    // Card estreito mas viewport largo → abre já no overlay de tela cheia
-    // (garante ≥900px). A iframe vive em window (não popup), então o listener
-    // de postMessage continua capturando os PDFs normalmente.
-    setFullscreen(largura > 0 && largura < MIN_IFRAME_W);
+    // Card estreito (ou ainda não medido) mas viewport largo → abre já no
+    // overlay de tela cheia (garante ≥900px). A iframe vive em window (não
+    // popup), então o listener de postMessage continua capturando os PDFs.
+    // Na coluna direita (~380px) isso é sempre verdade: Emitir abre direto a
+    // interface da Mevo, sem nunca cair no aviso bloqueante em desktop.
+    setFullscreen(largura < MIN_IFRAME_W);
     setEstado({ kind: "modal", url, prescricaoId });
   }
 
