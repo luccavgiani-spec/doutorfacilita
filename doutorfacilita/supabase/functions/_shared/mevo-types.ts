@@ -36,7 +36,7 @@ export interface MevoPaciente {
   ReferenciaExterna?: string; // patients.id
 }
 
-/** Estabelecimento de saúde (Doutor Facilita). */
+/** Estabelecimento de saúde (Plantão Digital). */
 export interface MevoEstabelecimento {
   Nome: string;
   Documento?: string; // CNPJ, se exigido
@@ -54,6 +54,7 @@ export interface MevoIniciarPayload {
   CorSecundaria?: string;
   LogoURL?: string;
   ReferenciaExterna?: string; // consultation_id local
+  RegistroProntuarioEletronico: { ReferenciaExterna: string }; // obrigatório (fora da doc v1.42)
 }
 
 /**
@@ -70,6 +71,10 @@ export interface MevoRespostaIniciar {
   qrcode_url?: string;
   codigoValidacao?: string;
   codigo_validacao?: string;
+  // Chaves PascalCase efetivamente retornadas pela Mevo (doc oficial).
+  ModalURL?: string;
+  QRCodeURL?: string;
+  CodigoValidacao?: string;
 }
 
 /** Forma normalizada que devolvemos ao frontend. */

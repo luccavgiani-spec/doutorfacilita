@@ -240,7 +240,7 @@ export default function LPScreenDesktop() {
                 <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>Faturamento PJ</li>
                 <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>Relatório de uso</li>
               </ul>
-              <a href="mailto:contato@doutorfacilita.com.br" className="lp-d-price-cta">Falar com vendas</a>
+              <a href="mailto:contato@plantaodigital.com.br" className="lp-d-price-cta">Falar com vendas</a>
             </div>
           </div>
         </div>
@@ -271,7 +271,7 @@ export default function LPScreenDesktop() {
           </div>
           <div className="lp-d-footer-col">
             <h5>Suporte</h5>
-            <a href="mailto:suporte@doutorfacilita.com.br">suporte@doutorfacilita.com.br</a>
+            <a href="mailto:suporte@plantaodigital.com.br">suporte@plantaodigital.com.br</a>
             <a href="#">Central de ajuda</a>
           </div>
         </div>

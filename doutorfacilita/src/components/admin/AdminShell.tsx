@@ -37,7 +37,7 @@ export default function AdminShell({
     <div className="flex min-h-screen bg-bg font-sans text-txt">
       <aside className="flex w-60 shrink-0 flex-col border-r border-border bg-white">
         <div className="border-b border-border px-5 py-4">
-          <p className="text-sm font-bold">Doutor Facilita</p>
+          <p className="text-sm font-bold">Plantão Digital</p>
           <p className="text-xs text-txt-2">Painel administrativo</p>
         </div>
         <nav className="flex flex-1 flex-col gap-1 p-3">

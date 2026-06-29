@@ -48,7 +48,7 @@ export default async function IntegracoesPage({
         <div>
           <h1 className="text-lg font-bold">Integrações</h1>
           <p className="text-sm text-txt-2">
-            Ligue e desligue os serviços externos da Doutor Facilita. Use os
+            Ligue e desligue os serviços externos da Plantão Digital. Use os
             botões grandes à direita pra ativar cada um.
           </p>
         </div>

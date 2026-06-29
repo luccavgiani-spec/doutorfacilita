@@ -22,6 +22,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { json, preflight, resolveDoctor } from "../_shared/http.ts";
+import { pick } from "../_shared/mevo-utils.ts";
 import type {
   MevoErroValidacao,
   MevoIniciarPayload,
@@ -143,7 +144,7 @@ Deno.serve(async (req) => {
 
   // ─── Monta payload ──────────────────────────────────────────────
   const payload: MevoIniciarPayload = {
-    SubParceiro: Deno.env.get("MEVO_SUBPARCEIRO") ?? "DOUTOR_FACILITA",
+    SubParceiro: Deno.env.get("MEVO_SUBPARCEIRO") ?? "PLANTAO_DIGITAL",
     Profissional: {
       Nome: doctor.full_name,
       Documento: onlyDigits(doctor.cpf),
@@ -168,13 +169,14 @@ Deno.serve(async (req) => {
         : undefined,
       ReferenciaExterna: patient.id,
     },
-    Estabelecimento: { Nome: "Doutor Facilita" },
+    Estabelecimento: { Nome: "Plantão Digital" },
     CertificadoDigitalObrigatorio: true,
     PermitirImpressao: false,
     CorPrimaria: Deno.env.get("MEVO_COR_PRIMARIA") ?? undefined,
     CorSecundaria: Deno.env.get("MEVO_COR_SECUNDARIA") ?? undefined,
     LogoURL: Deno.env.get("MEVO_LOGO_URL") || undefined,
     ReferenciaExterna: consultationId,
+    RegistroProntuarioEletronico: { ReferenciaExterna: consultationId },
   };
 
   // ─── Chama a Mevo ───────────────────────────────────────────────
@@ -238,13 +240,15 @@ Deno.serve(async (req) => {
     return json({ error: "mevo_resposta_invalida" }, 502);
   }
 
-  // Normaliza nomes de campo (camelCase / snake_case).
-  const mevoId = resposta.idPrescricao ?? resposta.id ?? null;
-  const modalUrl = resposta.url ?? resposta.link ?? null;
-  const token = resposta.token ?? null;
-  const qrcode = resposta.qrCodeUrl ?? resposta.qrcode_url ?? null;
-  const codigo = resposta.codigoValidacao ?? resposta.codigo_validacao ?? null;
+  // Normaliza nomes de campo (PascalCase / camelCase / snake_case), case-insensitive.
+  const r = resposta as unknown as Record<string, unknown>;
+  const mevoId   = pick(r, "idPrescricao", "IdPrescricao", "id", "prescricaoId");
+  const modalUrl = pick(r, "ModalURL", "modalUrl", "url", "link");
+  const token    = pick(r, "token", "Token");
+  const qrcode   = pick(r, "QRCodeURL", "qrCodeUrl", "qrcode_url", "QrCodeUrl");
+  const codigo   = pick(r, "CodigoValidacao", "codigoValidacao", "codigo_validacao");
 
+  if (!modalUrl) console.error("[mevo-iniciar] resposta sem ModalURL. Chaves recebidas:", Object.keys(r));
   if (!modalUrl) {
     return json(
       { error: "mevo_sem_url", message: "Mevo não retornou URL da prescrição." },

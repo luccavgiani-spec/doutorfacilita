@@ -2,12 +2,12 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Doutor Facilita — Consulta médica online por R$ 59",
+  title: "Plantão Digital — Consulta médica online por R$ 59",
   description:
     "Atendimento médico por vídeo em até 10 minutos. Sem agendamento. Receita digital, atestado e exames pelo celular. CRM ativo, LGPD, conformidade CFM.",
-  metadataBase: new URL("https://doutorfacilita.com.br"),
+  metadataBase: new URL("https://plantaodigital.com.br"),
   openGraph: {
-    title: "Doutor Facilita — Saúde sem sair de casa",
+    title: "Plantão Digital — Saúde sem sair de casa",
     description: "Paga, entra na fila, médico te atende pelo vídeo em até 10 min.",
     type: "website",
     locale: "pt_BR",

@@ -51,7 +51,7 @@ export async function createPayment(
   // ─── Quando MERCADOPAGO_ACCESS_TOKEN estiver configurado: ──────────
   //
   // IMPORTANTE — dois endpoints distintos do MP, escolhidos pela
-  // recomendação atual da Doutor Facilita:
+  // recomendação atual da Plantão Digital:
   //
   //   • PIX     → Payments API   (endpoint /v1/payments)
   //   • Cartão  → Orders API     (endpoint /v1/orders, nova API "checkout")

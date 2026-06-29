@@ -1,5 +1,5 @@
 ============================================================
- DOUTOR FACILITA — HANDOFF PARA NOVA SESSÃO CLAUDE
+ PLANTÃO DIGITAL — HANDOFF PARA NOVA SESSÃO CLAUDE
  Atualizado: 2026-05-29
  Projeto Supabase: tylpojscdbkzulykdguv (sa-east-1)
 ============================================================

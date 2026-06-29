@@ -1,4 +1,4 @@
-# DoutorFacilita
+# Plantão Digital
 
 Plataforma de telemedicina pronto-atendimento. Paciente paga, entra na fila em tempo real, é atendido por médico via vídeo em até 10 minutos.
 

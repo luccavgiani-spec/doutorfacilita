@@ -90,19 +90,86 @@ Deno.serve(async (req) => {
     return json({ error: "not_your_prescricao" }, 403);
   }
 
+  // Allowlist de host dos PDFs — só baixa de origens confiáveis (defesa
+  // contra URL arbitrária / SSRF). CSV em MEVO_PDF_ALLOWED_HOSTS; default
+  // cobre o S3 da AWS e o domínio da Nexodata/Mevo.
+  const allowedHosts = (Deno.env.get("MEVO_PDF_ALLOWED_HOSTS") ??
+    ".amazonaws.com,.nexodata.com.br")
+    .split(",")
+    .map((h) => h.trim().toLowerCase())
+    .filter(Boolean);
+
+  const hostPermitido = (urlStr: string): boolean => {
+    let host: string;
+    try {
+      host = new URL(urlStr).hostname.toLowerCase();
+    } catch {
+      return false;
+    }
+    return allowedHosts.some((suf) => {
+      const s = suf.startsWith(".") ? suf : "." + suf;
+      return host === suf.replace(/^\./, "") || host.endsWith(s);
+    });
+  };
+
   const falhas: Array<{ tipo: string; erro: string }> = [];
   let salvos = 0;
 
+  // Grava uma linha DURÁVEL de tentativa em prescricoes_documentos.
+  // erro === null → sucesso (arquivo arquivado em storage_path);
+  // erro !== null → falha rastreável (storage_path null), monitorada pela
+  // view v_failed_pdf_downloads. PDF nunca some sem deixar rastro.
+  const registrar = async (
+    tipo: string,
+    doc: DocumentoMevo | undefined,
+    storagePath: string | null,
+    contentType: string,
+    erro: string | null,
+  ): Promise<{ error: { message: string } | null }> => {
+    const agora = new Date().toISOString();
+    const { error } = await admin
+      .from("prescricoes_documentos")
+      .insert({
+        prescricao_id: prescricaoId,
+        tipo_documento: tipo,
+        categoria: doc?.Categoria ?? null,
+        storage_path: storagePath,
+        assinado: doc?.Assinado ?? false,
+        content_type: contentType,
+        mevo_original_url: doc?.URL ?? null,
+        download_attempted_at: agora,
+        download_succeeded_at: erro ? null : agora,
+        download_error: erro,
+      });
+    return { error };
+  };
+
   for (const doc of documentos) {
     const tipo = doc?.TipoDocumento ?? "DOC";
+    const ctFallback = doc?.ContentType || "application/pdf";
+
     if (!doc?.URL) {
+      await registrar(tipo, doc, null, ctFallback, "documento sem URL");
       falhas.push({ tipo, erro: "documento sem URL" });
+      continue;
+    }
+
+    if (!hostPermitido(doc.URL)) {
+      let host = "";
+      try {
+        host = new URL(doc.URL).hostname;
+      } catch { /* url inválida */ }
+      const motivo = `host não permitido: ${host || doc.URL}`;
+      await registrar(tipo, doc, null, ctFallback, motivo);
+      falhas.push({ tipo, erro: motivo });
       continue;
     }
 
     const baixado = await baixarComRetry(doc.URL, 2);
     if (!baixado.ok) {
-      falhas.push({ tipo, erro: `download falhou: ${baixado.erro}` });
+      const motivo = `download falhou: ${baixado.erro}`;
+      await registrar(tipo, doc, null, ctFallback, motivo);
+      falhas.push({ tipo, erro: motivo });
       continue;
     }
 
@@ -119,28 +186,28 @@ Deno.serve(async (req) => {
       });
 
     if (upErr) {
-      falhas.push({ tipo, erro: `upload falhou: ${upErr.message}` });
+      const motivo = `upload falhou: ${upErr.message}`;
+      await registrar(tipo, doc, null, contentType, motivo);
+      falhas.push({ tipo, erro: motivo });
       continue;
     }
 
-    const { error: docInsErr } = await admin
-      .from("prescricoes_documentos")
-      .insert({
-        prescricao_id: prescricaoId,
-        tipo_documento: tipo,
-        categoria: doc.Categoria ?? null,
-        storage_path: storagePath,
-        assinado: doc.Assinado ?? false,
-        content_type: contentType,
-      });
+    // Sucesso: linha com storage_path preenchido + rastro de download.
+    const { error: docInsErr } = await registrar(
+      tipo,
+      doc,
+      storagePath,
+      contentType,
+      null,
+    );
 
     if (docInsErr) {
-      // Arquivo está salvo no storage mas a linha falhou — registra como falha
-      // parcial para reprocessamento manual (não conta como sucesso).
-      falhas.push({
-        tipo,
-        erro: `registro falhou (arquivo em ${storagePath}): ${docInsErr.message}`,
-      });
+      // Arquivo está no storage mas a linha falhou — grava falha durável
+      // (com o caminho no erro) para reprocessamento manual.
+      const motivo =
+        `registro falhou (arquivo em ${storagePath}): ${docInsErr.message}`;
+      await registrar(tipo, doc, null, contentType, motivo);
+      falhas.push({ tipo, erro: motivo });
       continue;
     }
 

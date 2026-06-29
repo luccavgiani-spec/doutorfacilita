@@ -93,7 +93,7 @@ export default function ProntiaDashboard({
         <Kpi label="Receita gerada" value={brl(k.receita)} tone="green" />
         <Kpi label="Repassado à Prontia" value={brl(k.repasse)} tone="red" />
         <Kpi
-          label="Margem (Doutor Facilita)"
+          label="Margem (Plantão Digital)"
           value={`${brl(k.margem)} · ${k.margemPct}%`}
           tone={k.margem >= 0 ? "green" : "red"}
         />
@@ -103,7 +103,7 @@ export default function ProntiaDashboard({
       <section className="rounded-xl border border-border bg-white p-6">
         <h3 className="text-sm font-bold">Calibrar valores</h3>
         <p className="mb-4 text-xs text-txt-2">
-          Quanto o paciente paga e quanto a Doutor Facilita repassa à Prontia
+          Quanto o paciente paga e quanto a Plantão Digital repassa à Prontia
           por encaminhamento. (Para ligar/desligar o redirecionamento ou trocar
           a URL de destino, use o card grande no topo da página.)
         </p>
