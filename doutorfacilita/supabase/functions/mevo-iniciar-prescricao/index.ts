@@ -176,7 +176,7 @@ Deno.serve(async (req) => {
     CorSecundaria: Deno.env.get("MEVO_COR_SECUNDARIA") ?? undefined,
     LogoURL: Deno.env.get("MEVO_LOGO_URL") || undefined,
     ReferenciaExterna: consultationId,
-    RegistroProntuarioEletronico: {},
+    RegistroProntuarioEletronico: { ReferenciaExterna: consultationId },
   };
 
   // ─── Chama a Mevo ───────────────────────────────────────────────

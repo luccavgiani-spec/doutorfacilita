@@ -54,7 +54,7 @@ export interface MevoIniciarPayload {
   CorSecundaria?: string;
   LogoURL?: string;
   ReferenciaExterna?: string; // consultation_id local
-  RegistroProntuarioEletronico: Record<string, unknown> | unknown[]; // obrigatório (fora da doc v1.42)
+  RegistroProntuarioEletronico: { ReferenciaExterna: string }; // obrigatório (fora da doc v1.42)
 }
 
 /**
