@@ -925,6 +925,12 @@ body {
 .queue-card.current .qc-pos { background: var(--blue); color: white; }
 .queue-card.is-next .qc-pos { background: var(--green); color: white; }
 .queue-card.is-next { border-color: var(--green); }
+/* Em atendimento: card permanece visível, em amarelo claro (token de warning). */
+.queue-card.is-attending {
+  background: var(--yellow-l); border-color: var(--yellow); cursor: default;
+}
+.queue-card.is-attending .qc-pos { background: var(--yellow); color: #7a5a00; }
+.qc-attending-label { color: #7a5a00; font-weight: 600; }
 .qc-av {
   width: 22px; height: 22px; border-radius: 50%;
   background: linear-gradient(135deg, var(--blue), var(--green));

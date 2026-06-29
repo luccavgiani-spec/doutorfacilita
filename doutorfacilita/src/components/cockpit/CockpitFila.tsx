@@ -14,6 +14,7 @@ interface CockpitFilaProps {
 
 type QueueItem = {
   id: string;
+  status: string;
   queued_at: string | null;
   created_at: string;
   chief_complaint: string | null;
@@ -22,6 +23,9 @@ type QueueItem = {
     full_name: string | null;
     birth_date: string | null;
     gender: string | null;
+  } | null;
+  doctor: {
+    full_name: string | null;
   } | null;
 };
 
@@ -69,13 +73,15 @@ export default function CockpitFila({ onCallNext, activeConsultationId }: Cockpi
       setError("NEXT_PUBLIC_SUPABASE_URL/ANON_KEY ausentes em .env.local");
       return;
     }
+    // Inclui quem aguarda (in_queue) E quem já está em atendimento (in_progress),
+    // para que o card permaneça visível com o rótulo "Atendendo - {médico}".
+    // O full_name do médico vem por embedding do PostgREST (não altera schema).
     const { data, error: e } = await sb
       .from("consultations")
       .select(
-        "id, queued_at, created_at, chief_complaint, patient:patients(id, full_name, birth_date, gender)"
+        "id, status, queued_at, created_at, chief_complaint, patient:patients(id, full_name, birth_date, gender), doctor:doctors(full_name)"
       )
-      .eq("status", "in_queue")
-      .is("doctor_id", null)
+      .in("status", ["in_queue", "in_progress"])
       .order("queued_at", { ascending: true, nullsFirst: false })
       .order("created_at", { ascending: true });
 
@@ -141,34 +147,50 @@ export default function CockpitFila({ onCallNext, activeConsultationId }: Cockpi
     );
   }
 
+  // Em atendimento (in_progress) vão para o TOPO; quem aguarda mantém a ordem
+  // relativa abaixo. Menos disruptivo: a fila de espera continua igual e o
+  // "Chamar próximo" segue apontando para o primeiro AGUARDANDO (não o primeiro
+  // da lista, que agora pode ser um card já em atendimento).
+  const attending = items.filter((c) => c.status === "in_progress");
+  const waiting = items.filter((c) => c.status === "in_queue");
+  const firstWaitingId = waiting[0]?.id ?? null;
+  const cards = [
+    ...attending.map((c) => ({ c, pos: null as number | null })),
+    ...waiting.map((c, i) => ({ c, pos: i + 1 })),
+  ];
+
   return (
     <div className="doc-queue">
       <div className="doc-queue-header">
         <div className="doc-queue-title">Fila de atendimento</div>
-        <div className="doc-queue-count">{items.length}</div>
+        {/* Contagem reflete apenas quem está de fato aguardando. */}
+        <div className="doc-queue-count">{waiting.length}</div>
       </div>
       <div className="doc-queue-filter">
         <div className="doc-filter-tab active">Aguardando</div>
         <div className="doc-filter-tab">Em espera</div>
       </div>
 
-      {items.length === 0 && (
+      {cards.length === 0 && (
         <div className="cockpit-queue-empty">
           Nenhum paciente na fila no momento.
         </div>
       )}
 
-      {items.map((c, idx) => {
+      {cards.map(({ c, pos }) => {
         const age = calcAge(c.patient?.birth_date);
         const since = minutesAgo(c.queued_at ?? c.created_at);
-        const isNext = idx === 0;
+        const isAttending = c.status === "in_progress";
+        const isNext = !isAttending && c.id === firstWaitingId;
         return (
           <div
             key={c.id}
-            className={`queue-card${isNext ? " is-next" : ""}`}
+            className={`queue-card${isNext ? " is-next" : ""}${
+              isAttending ? " is-attending" : ""
+            }`}
           >
             <div className="queue-card-top">
-              <div className="qc-pos">{idx + 1}</div>
+              <div className="qc-pos">{isAttending ? "•" : pos}</div>
               <div className="qc-name">
                 <span className="qc-av">{initials(c.patient?.full_name)}</span>
                 {c.patient?.full_name ?? "Paciente"}
@@ -179,7 +201,14 @@ export default function CockpitFila({ onCallNext, activeConsultationId }: Cockpi
               {age !== null ? `${age} anos · ` : ""}
               <b>{c.chief_complaint ?? "Sem queixa informada"}</b>
               <br />
-              Aguardando há {since} min
+              {isAttending ? (
+                <span className="qc-attending-label">
+                  Atendendo
+                  {c.doctor?.full_name ? ` - ${c.doctor.full_name}` : ""}
+                </span>
+              ) : (
+                <>Aguardando há {since} min</>
+              )}
             </div>
             {isNext && !activeConsultationId && (
               <CallNextButton
