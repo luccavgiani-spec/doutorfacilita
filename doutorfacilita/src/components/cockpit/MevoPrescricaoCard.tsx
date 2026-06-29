@@ -73,6 +73,10 @@ export default function MevoPrescricaoCard({
   } = useMevoPrescricao(consultationId);
 
   const [estado, setEstado] = useState<Estado>({ kind: "ocioso" });
+  // Modal Mevo em overlay de tela cheia (garante ≥900px independente da
+  // largura do card). Mantém a MESMA iframe montada — só troca a classe do
+  // container — para não recarregar/perder a sessão da prescrição.
+  const [fullscreen, setFullscreen] = useState(false);
   const [prescricoes, setPrescricoes] = useState<PrescricaoMevo[]>([]);
   const [docCounts, setDocCounts] = useState<Record<string, number>>({});
   const [config, setConfig] = useState<ConfigCheck>(null);
@@ -106,6 +110,7 @@ export default function MevoPrescricaoCard({
 
   const fecharIframe = useCallback(() => {
     prescricaoAtivaRef.current = null;
+    setFullscreen(false);
     setEstado({ kind: "ocioso" });
     recarregarLista();
   }, [recarregarLista]);
@@ -157,18 +162,22 @@ export default function MevoPrescricaoCard({
 
   function abrirModal(url: string, prescricaoId: string) {
     const largura = wrapRef.current?.clientWidth ?? 0;
-    if (largura > 0 && largura < MIN_IFRAME_W) {
-      // Janela estreita → NÃO abrir popup. Um popup separado posta o evento
-      // para window.opener, que o listener (em window) não recebe → os PDFs
-      // (URLs S3 de 10 min) seriam perdidos silenciosamente. Bloqueia e pede
-      // pra ampliar. A prescrição já foi criada e fica disponível na lista
-      // para reabrir quando a janela estiver larga o suficiente.
+    const viewport = typeof window !== "undefined" ? window.innerWidth : 0;
+
+    // Guard mantido, mas agora raramente atingido: só quando NEM em tela cheia
+    // há 900px (viewport do navegador < 900). Aí não há como exibir o iframe.
+    if (viewport > 0 && viewport < MIN_IFRAME_W) {
       prescricaoAtivaRef.current = null;
       setEstado({ kind: "tela_estreita" });
       recarregarLista();
       return;
     }
+
     prescricaoAtivaRef.current = prescricaoId;
+    // Card estreito mas viewport largo → abre já no overlay de tela cheia
+    // (garante ≥900px). A iframe vive em window (não popup), então o listener
+    // de postMessage continua capturando os PDFs normalmente.
+    setFullscreen(largura > 0 && largura < MIN_IFRAME_W);
     setEstado({ kind: "modal", url, prescricaoId });
   }
 
@@ -262,36 +271,32 @@ export default function MevoPrescricaoCard({
       {/* ─── CTA / estados ─────────────────────────────────────── */}
       <div className="mevo-cta-wrap">
         {estado.kind === "modal" ? (
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 8,
-              minHeight: 560,
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div className={`mevo-modal${fullscreen ? " mevo-modal--full" : ""}`}>
+            <div className="mevo-modal-head">
               <strong style={{ fontSize: 13 }}>Mevo Prescritores</strong>
-              <button
-                type="button"
-                className="doc-emitted-btn"
-                onClick={fecharIframe}
-                title="Fechar"
-              >
-                Fechar ✕
-              </button>
+              <div className="mevo-modal-actions">
+                <button
+                  type="button"
+                  className="doc-emitted-btn"
+                  onClick={() => setFullscreen((f) => !f)}
+                  title={fullscreen ? "Recolher" : "Expandir para tela cheia"}
+                >
+                  {fullscreen ? "Recolher ⤡" : "Expandir ⤢"}
+                </button>
+                <button
+                  type="button"
+                  className="doc-emitted-btn"
+                  onClick={fecharIframe}
+                  title="Fechar"
+                >
+                  Fechar ✕
+                </button>
+              </div>
             </div>
             <iframe
               src={estado.url}
               title="Mevo Prescritores"
-              style={{
-                width: "100%",
-                minWidth: MIN_IFRAME_W,
-                height: 700,
-                border: "1px solid var(--border)",
-                borderRadius: 8,
-                background: "#fff",
-              }}
+              className="mevo-iframe"
               allow="camera; microphone; clipboard-write"
             />
           </div>
@@ -339,8 +344,10 @@ export default function MevoPrescricaoCard({
           </div>
         ) : estado.kind === "tela_estreita" ? (
           <div className="mevo-state-warn">
-            🖥️ Amplie a janela para ≥900px para emitir a receita. A prescrição
-            foi criada e está disponível para reabrir na lista abaixo.
+            🖥️ A janela do navegador está abaixo de 900px. Normalmente o botão{" "}
+            <b>Expandir</b> da modal já resolve, mas aqui nem em tela cheia há
+            900px — amplie a janela do navegador para emitir a receita. A
+            prescrição foi criada e está disponível para reabrir na lista abaixo.
             <div style={{ marginTop: 10 }}>
               <button type="button" className="mevo-start-btn" onClick={() => setEstado({ kind: "ocioso" })}>
                 Entendi

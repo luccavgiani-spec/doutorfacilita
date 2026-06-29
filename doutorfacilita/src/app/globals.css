@@ -1154,6 +1154,36 @@ body {
   color: #8a6d00; font-weight: 600;
 }
 
+/* ─── Modal Mevo (inline + overlay de tela cheia) ──────────────────── */
+.mevo-modal {
+  display: flex; flex-direction: column; gap: 8px; min-height: 560px;
+}
+.mevo-modal-head {
+  display: flex; justify-content: space-between; align-items: center;
+}
+.mevo-modal-actions { display: flex; gap: 8px; }
+.mevo-iframe {
+  width: 100%; min-width: 900px; height: 700px;
+  border: 1px solid var(--border); border-radius: 8px; background: #fff;
+}
+/* Tela cheia: overlay garante ≥900px independente da largura do card. */
+.mevo-modal--full {
+  position: fixed; inset: 0; z-index: 1200;
+  min-height: 0; gap: 0;
+  padding: 16px;
+  background: rgba(15, 18, 20, 0.6);
+  overflow: auto;
+}
+.mevo-modal--full .mevo-modal-head {
+  background: #fff; padding: 12px 16px;
+  border: 1px solid var(--border); border-bottom: none;
+  border-radius: 10px 10px 0 0;
+}
+.mevo-modal--full .mevo-iframe {
+  flex: 1; height: auto; min-height: 0;
+  border-radius: 0 0 10px 10px; border-top: none;
+}
+
 /* Confirmação de envio (SMS + e-mail) — só após prescrição finalizada. */
 .mevo-sent-confirm {
   margin-top: 6px; padding: 8px 10px; border-radius: 8px;
