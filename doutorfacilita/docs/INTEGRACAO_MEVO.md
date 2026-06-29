@@ -9,7 +9,7 @@ Digital** (Nexodata) embutida no Cockpit do médico.
 
 ## Arquitetura
 
-- A Mevo opera com **uma credencial única do parceiro** (Doutor Facilita):
+- A Mevo opera com **uma credencial única do parceiro** (Plantão Digital):
   `Authorization: Basic Base64(login:senha)`. Médicos **não** criam conta —
   são identificados a cada chamada pelo payload (Nome, CPF, CRM+UF, especialidade).
 - A credencial **nunca** vai ao frontend. Toda chamada passa por Edge
@@ -62,7 +62,7 @@ Tipos compartilhados: `supabase/functions/_shared/mevo-types.ts`
 npx supabase secrets set \
   MEVO_BASE_URL=https://emr-homolog.nexodata.com.br \
   MEVO_AUTH_B64=                # Base64(login:senha) — VAZIO até a Mevo enviar \
-  MEVO_SUBPARCEIRO=DOUTOR_FACILITA \
+  MEVO_SUBPARCEIRO=PLANTAO_DIGITAL \
   MEVO_LOGO_URL=                # URL pública do logo (162x50px, ≤500kb) \
   MEVO_COR_PRIMARIA=#0066CC \
   MEVO_COR_SECUNDARIA=#00A3FF
@@ -83,7 +83,7 @@ pelo runtime das Functions.
 - [ ] ≥3 médicos em `public.doctors` com `cpf`, `council_number`,
       `council_state`, `email` válidos
 - [ ] Cada médico com certificado digital em nuvem (Bird ID / SafeID / Vidaas)
-- [ ] Logo do Doutor Facilita em URL pública (162x50px, ≤500kb) → `MEVO_LOGO_URL`
+- [ ] Logo do Plantão Digital em URL pública (162x50px, ≤500kb) → `MEVO_LOGO_URL`
 - [ ] Migrations 017–021 aplicadas; bucket `prescricoes-pdfs` privado existe
 
 ## Fluxo de teste end-to-end (homologação)

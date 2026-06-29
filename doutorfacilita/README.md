@@ -1,4 +1,4 @@
-# Doutor Facilita
+# Plantão Digital
 
 Plataforma de telemedicina da nó. Atendimento médico por vídeo em até 10 minutos.
 
@@ -44,7 +44,7 @@ Secrets do Supabase: `MEVO_BASE_URL`, `MEVO_AUTH_B64`, `MEVO_SUBPARCEIRO`,
 
 - **CFM 2.314/2022** — teleconsulta com termo de consentimento
 - **CFM 1.821/2007 + Lei 13.787/2018** — prontuário eletrônico (retenção 20 anos)
-- **LGPD** — paciente é titular, Doutor Facilita é controladora, Mevo é suboperadora
+- **LGPD** — paciente é titular, Plantão Digital é controladora, Mevo é suboperadora
 - **NGS2/SBIS-CFM** — trilha de auditoria append-only no Supabase
 
 Detalhes na documentação interna do projeto.

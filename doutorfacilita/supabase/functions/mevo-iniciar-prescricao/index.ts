@@ -143,7 +143,7 @@ Deno.serve(async (req) => {
 
   // ─── Monta payload ──────────────────────────────────────────────
   const payload: MevoIniciarPayload = {
-    SubParceiro: Deno.env.get("MEVO_SUBPARCEIRO") ?? "DOUTOR_FACILITA",
+    SubParceiro: Deno.env.get("MEVO_SUBPARCEIRO") ?? "PLANTAO_DIGITAL",
     Profissional: {
       Nome: doctor.full_name,
       Documento: onlyDigits(doctor.cpf),
@@ -168,7 +168,7 @@ Deno.serve(async (req) => {
         : undefined,
       ReferenciaExterna: patient.id,
     },
-    Estabelecimento: { Nome: "Doutor Facilita" },
+    Estabelecimento: { Nome: "Plantão Digital" },
     CertificadoDigitalObrigatorio: true,
     PermitirImpressao: false,
     CorPrimaria: Deno.env.get("MEVO_COR_PRIMARIA") ?? undefined,

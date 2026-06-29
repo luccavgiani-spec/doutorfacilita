@@ -36,7 +36,7 @@ export interface MevoPaciente {
   ReferenciaExterna?: string; // patients.id
 }
 
-/** Estabelecimento de saúde (Doutor Facilita). */
+/** Estabelecimento de saúde (Plantão Digital). */
 export interface MevoEstabelecimento {
   Nome: string;
   Documento?: string; // CNPJ, se exigido
