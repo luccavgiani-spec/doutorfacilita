@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import DoctorMenu from "@/components/cockpit/DoctorMenu";
 import MevoPrescricaoCard from "@/components/cockpit/MevoPrescricaoCard";
 import CockpitFila from "@/components/cockpit/CockpitFila";
@@ -25,6 +25,48 @@ export default function CockpitScreen({
 }) {
   const [activeCall, setActiveCall] = useState<ActiveCallPayload | null>(null);
   const chartRef = useRef<ChartPanelHandle | null>(null);
+
+  // ── Split redimensionável vídeo ↔ Mevo (vertical) ─────────────────────
+  // Vídeo com ALTURA FIXA em px (default 280) e reduzida, deixando o resto da
+  // coluna central para a Mevo renderizar a interface inteira (≥900px de
+  // largura garantidos pelo grid) sem precisar expandir. O divisor é opcional:
+  // o médico pode arrastar pra dar mais altura ao vídeo se quiser. Persistido
+  // só em estado local (sem localStorage), como pedido.
+  const [videoPx, setVideoPx] = useState(280);
+  const mainRef = useRef<HTMLDivElement>(null);
+  const draggingRef = useRef(false);
+
+  const onDragMove = useCallback((e: MouseEvent) => {
+    if (!draggingRef.current || !mainRef.current) return;
+    const rect = mainRef.current.getBoundingClientRect();
+    const px = e.clientY - rect.top;
+    setVideoPx(Math.min(560, Math.max(160, px)));
+  }, []);
+
+  const stopDrag = useCallback(() => {
+    draggingRef.current = false;
+    document.body.style.userSelect = "";
+    document.body.style.cursor = "";
+  }, []);
+
+  const startDrag = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      draggingRef.current = true;
+      document.body.style.userSelect = "none";
+      document.body.style.cursor = "row-resize";
+    },
+    []
+  );
+
+  useEffect(() => {
+    window.addEventListener("mousemove", onDragMove);
+    window.addEventListener("mouseup", stopDrag);
+    return () => {
+      window.removeEventListener("mousemove", onDragMove);
+      window.removeEventListener("mouseup", stopDrag);
+    };
+  }, [onDragMove, stopDrag]);
 
   // ID efetivo da consulta ativa: a chamada em andamento se houver,
   // senão o que veio do server (in_progress prévio resolvido em /cockpit/page.tsx).
@@ -85,9 +127,16 @@ export default function CockpitScreen({
       />
 
       {/* ═══════════════════════════════════════════════════ */}
-      {/* MAIN — visor da telechamada + painel Mevo (embaixo)  */}
+      {/* MAIN — centro ≥900px: vídeo (topo, reduzido) +       */}
+      {/* card/iframe da Mevo inline e completo (embaixo).     */}
       {/* ═══════════════════════════════════════════════════ */}
-      <div className="doc-main">
+      <div
+        className="doc-main"
+        ref={mainRef}
+        style={{
+          gridTemplateRows: `${videoPx}px 10px minmax(0, 1fr)`,
+        }}
+      >
         {activeCall ? (
           <DoctorCallEmbedded
             token={activeCall.token}
@@ -107,9 +156,21 @@ export default function CockpitScreen({
           </div>
         )}
 
+        {/* Divisor redimensionável (opcional) — arraste p/ dar mais altura
+            ao vídeo. O default já mostra a Mevo inteira sem arrastar. */}
+        <div
+          className="doc-split-handle"
+          onMouseDown={startDrag}
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label="Redimensionar vídeo e Mevo"
+          title="Arraste para dar mais altura ao vídeo"
+        />
+
         {/* ═══════════════════════════════════════════════════ */}
-        {/* ACTIONS PANEL — EXPANDIDO COM CAPACIDADES MEVO        */}
-        {/* (movido para baixo do visor da telechamada)          */}
+        {/* MEVO — card/iframe inline e completo, abaixo do      */}
+        {/* vídeo. O centro garante ≥900px, então a interface da */}
+        {/* Mevo renderiza inteira sem expandir nem overlay.     */}
         {/* ═══════════════════════════════════════════════════ */}
         <div className="doc-actions">
 
@@ -159,8 +220,8 @@ export default function CockpitScreen({
 
       {/* ═══════════════════════════════════════════════════ */}
       {/* PRONTUÁRIO / HISTÓRICO / ANAMNESE — coluna direita    */}
-      {/* Dados reais por paciente + autosave em medical_records  */}
-      {/* (compliance CFM Resolução 1.821/2007).                  */}
+      {/* (mais estreita). Dados reais por paciente + autosave  */}
+      {/* em medical_records (CFM 1.821/2007).                  */}
       {/* ═══════════════════════════════════════════════════ */}
       <ChartPanel ref={chartRef} consultationId={effectiveConsultationId} />
     </div>

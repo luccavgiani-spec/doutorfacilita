@@ -831,11 +831,17 @@ body {
 .cockpit-desktop {
   background: var(--bg); height: 100vh; min-height: 720px;
   display: grid;
-  grid-template-columns: 260px 1fr 380px;
+  /* ESQUERDA (fila) ~310px para nomes longos numa linha só. CENTRO com min 900px
+     garante que a interface da Mevo (layout fixo ≥900px) renderize inteira inline e
+     absorve todo o espaço extra. DIREITA enxuta (360–420px). Em viewport estreito
+     demais para o centro de 900px, o overflow-x abaixo dá scroll horizontal como
+     fallback — nunca overlay. */
+  grid-template-columns: 310px minmax(900px, 2fr) minmax(360px, 420px);
   grid-template-rows: 56px 1fr;
   grid-template-areas:
     "top top top"
     "queue main actions";
+  overflow-x: auto;
 }
 
 .doc-top {
@@ -925,6 +931,12 @@ body {
 .queue-card.current .qc-pos { background: var(--blue); color: white; }
 .queue-card.is-next .qc-pos { background: var(--green); color: white; }
 .queue-card.is-next { border-color: var(--green); }
+/* Em atendimento: card permanece visível, em amarelo claro (token de warning). */
+.queue-card.is-attending {
+  background: var(--yellow-l); border-color: var(--yellow); cursor: default;
+}
+.queue-card.is-attending .qc-pos { background: var(--yellow); color: #7a5a00; }
+.qc-attending-label { color: #7a5a00; font-weight: 600; }
 .qc-av {
   width: 22px; height: 22px; border-radius: 50%;
   background: linear-gradient(135deg, var(--blue), var(--green));
@@ -949,8 +961,23 @@ body {
 
 .doc-main {
   grid-area: main; padding: 16px;
-  display: grid; grid-template-rows: minmax(0, 1.7fr) minmax(0, 1fr); gap: 12px; overflow: hidden;
+  /* grid-template-rows é controlado por estado (split redimensionável) via
+     inline style em CockpitScreen; o default JS dá menos altura ao vídeo
+     para sobrar espaço ao iframe da Mevo. */
+  display: grid; grid-template-rows: minmax(0, 1.7fr) 10px minmax(0, 1fr); gap: 12px; overflow: hidden;
 }
+
+/* Divisor arrastável entre o visor da chamada e o painel Mevo/prontuário. */
+.doc-split-handle {
+  align-self: stretch; cursor: row-resize;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 6px;
+}
+.doc-split-handle::before {
+  content: ''; width: 48px; height: 4px; border-radius: 100px;
+  background: var(--hborder2); transition: background 0.15s;
+}
+.doc-split-handle:hover::before { background: var(--blue); }
 
 .doc-video-strip {
   background: #1a1f24; border-radius: 14px; position: relative; overflow: hidden;
@@ -1010,10 +1037,12 @@ body {
 }
 .doc-vid-timer-num { color: white; font-size: 12px; font-weight: 500; }
 
+/* ChartPanel ocupa a COLUNA DIREITA (grid-area: actions), mais estreita. */
 .doc-chart {
   grid-area: actions; background: white;
   border-left: 1px solid var(--hborder);
   display: flex; flex-direction: column; overflow: hidden; min-height: 0;
+  min-width: 0;
 }
 .doc-chart-tabs {
   display: flex; padding: 8px 12px 0;
@@ -1100,10 +1129,14 @@ body {
    COCKPIT — ACTIONS PANEL (Mevo)
    ═══════════════════════════════════════════════════════════════ */
 
+/* Card Mevo vive no CENTRO, embaixo do vídeo (3ª linha de .doc-main).
+   Card com radius casa com o visor de vídeo. overflow-x auto é só fallback
+   caso o centro fique no limite dos 900px; em telas largas não aparece. */
 .doc-actions {
   background: white; border-radius: 14px;
   border: 1px solid var(--hborder);
-  overflow-y: auto; display: flex; flex-direction: column; min-height: 0;
+  overflow-y: auto; overflow-x: auto;
+  display: flex; flex-direction: column; min-height: 0; min-width: 0;
 }
 
 .actions-header {
@@ -1131,6 +1164,20 @@ body {
 }
 .mevo-subtitle .mevo-sub-warn {
   color: #8a6d00; font-weight: 600;
+}
+
+/* ─── Modal Mevo: SEMPRE inline no card do centro (≥900px garantidos pelo
+   grid). Sem overlay, sem botão de expandir. ───────────────────────── */
+.mevo-modal {
+  display: flex; flex-direction: column; gap: 8px;
+}
+.mevo-modal-head {
+  display: flex; justify-content: space-between; align-items: center;
+}
+.mevo-modal-actions { display: flex; gap: 8px; }
+.mevo-iframe {
+  width: 100%; min-width: 900px; height: 700px;
+  border: 1px solid var(--border); border-radius: 8px; background: #fff;
 }
 
 /* Confirmação de envio (SMS + e-mail) — só após prescrição finalizada. */

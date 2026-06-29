@@ -5,7 +5,6 @@ import { useMevoPrescricao } from "@/hooks/useMevoPrescricao";
 import type { EventoMevo, PrescricaoMevo } from "@/lib/mevo/types";
 
 const IS_DEV = process.env.NODE_ENV !== "production";
-const MIN_IFRAME_W = 900;
 
 // Origens confiáveis para mensagens postMessage vindas da iframe da Mevo.
 // Qualquer evento de outra origem é ignorado (defesa contra postMessage forjado).
@@ -28,8 +27,7 @@ type Estado =
   | { kind: "erro"; msg: string }
   | { kind: "nao_configurada" }
   | { kind: "salvando" }
-  | { kind: "salvo"; salvos: number; falhas: number }
-  | { kind: "tela_estreita" };
+  | { kind: "salvo"; salvos: number; falhas: number };
 
 // null = ainda checando.
 type ConfigCheck =
@@ -77,7 +75,6 @@ export default function MevoPrescricaoCard({
   const [docCounts, setDocCounts] = useState<Record<string, number>>({});
   const [config, setConfig] = useState<ConfigCheck>(null);
   const [qrUrl, setQrUrl] = useState<string | null>(null);
-  const wrapRef = useRef<HTMLDivElement>(null);
   // prescricaoId "ao vivo" — usado pelo listener de postMessage sem stale closure.
   const prescricaoAtivaRef = useRef<string | null>(null);
 
@@ -156,18 +153,8 @@ export default function MevoPrescricaoCard({
   }, [salvarDocumentos, fecharIframe, recarregarLista]);
 
   function abrirModal(url: string, prescricaoId: string) {
-    const largura = wrapRef.current?.clientWidth ?? 0;
-    if (largura > 0 && largura < MIN_IFRAME_W) {
-      // Janela estreita → NÃO abrir popup. Um popup separado posta o evento
-      // para window.opener, que o listener (em window) não recebe → os PDFs
-      // (URLs S3 de 10 min) seriam perdidos silenciosamente. Bloqueia e pede
-      // pra ampliar. A prescrição já foi criada e fica disponível na lista
-      // para reabrir quando a janela estiver larga o suficiente.
-      prescricaoAtivaRef.current = null;
-      setEstado({ kind: "tela_estreita" });
-      recarregarLista();
-      return;
-    }
+    // A interface da Mevo renderiza SEMPRE inline no card do centro, que o
+    // grid garante com ≥900px. Sem overlay, sem expandir, sem guard de tela.
     prescricaoAtivaRef.current = prescricaoId;
     setEstado({ kind: "modal", url, prescricaoId });
   }
@@ -255,43 +242,31 @@ export default function MevoPrescricaoCard({
       ultima.status === "finalizada_com_erro");
 
   return (
-    <div ref={wrapRef}>
+    <div>
       {/* ─── Subtítulo dinâmico ────────────────────────────────── */}
       <div className="mevo-subtitle">{subtitulo}</div>
 
       {/* ─── CTA / estados ─────────────────────────────────────── */}
       <div className="mevo-cta-wrap">
         {estado.kind === "modal" ? (
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 8,
-              minHeight: 560,
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div className="mevo-modal">
+            <div className="mevo-modal-head">
               <strong style={{ fontSize: 13 }}>Mevo Prescritores</strong>
-              <button
-                type="button"
-                className="doc-emitted-btn"
-                onClick={fecharIframe}
-                title="Fechar"
-              >
-                Fechar ✕
-              </button>
+              <div className="mevo-modal-actions">
+                <button
+                  type="button"
+                  className="doc-emitted-btn"
+                  onClick={fecharIframe}
+                  title="Fechar"
+                >
+                  Fechar ✕
+                </button>
+              </div>
             </div>
             <iframe
               src={estado.url}
               title="Mevo Prescritores"
-              style={{
-                width: "100%",
-                minWidth: MIN_IFRAME_W,
-                height: 700,
-                border: "1px solid var(--border)",
-                borderRadius: 8,
-                background: "#fff",
-              }}
+              className="mevo-iframe"
               allow="camera; microphone; clipboard-write"
             />
           </div>
@@ -334,16 +309,6 @@ export default function MevoPrescricaoCard({
             <div style={{ marginTop: 10 }}>
               <button type="button" className="mevo-start-btn" onClick={() => setEstado({ kind: "ocioso" })}>
                 Emitir outra prescrição
-              </button>
-            </div>
-          </div>
-        ) : estado.kind === "tela_estreita" ? (
-          <div className="mevo-state-warn">
-            🖥️ Amplie a janela para ≥900px para emitir a receita. A prescrição
-            foi criada e está disponível para reabrir na lista abaixo.
-            <div style={{ marginTop: 10 }}>
-              <button type="button" className="mevo-start-btn" onClick={() => setEstado({ kind: "ocioso" })}>
-                Entendi
               </button>
             </div>
           </div>
