@@ -831,11 +831,12 @@ body {
 .cockpit-desktop {
   background: var(--bg); height: 100vh; min-height: 720px;
   display: grid;
-  /* CENTRO com min 900px garante que a interface da Mevo (layout fixo ≥900px)
-     renderize inteira inline. DIREITA mais estreita (min 320px). Em viewport
-     estreito demais para o centro de 900px, o overflow-x abaixo dá scroll
-     horizontal como fallback — nunca overlay. */
-  grid-template-columns: 250px minmax(900px, 1.6fr) minmax(320px, 1fr);
+  /* ESQUERDA (fila) ~310px para nomes longos numa linha só. CENTRO com min 900px
+     garante que a interface da Mevo (layout fixo ≥900px) renderize inteira inline e
+     absorve todo o espaço extra. DIREITA enxuta (360–420px). Em viewport estreito
+     demais para o centro de 900px, o overflow-x abaixo dá scroll horizontal como
+     fallback — nunca overlay. */
+  grid-template-columns: 310px minmax(900px, 2fr) minmax(360px, 420px);
   grid-template-rows: 56px 1fr;
   grid-template-areas:
     "top top top"
