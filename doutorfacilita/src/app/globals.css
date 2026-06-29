@@ -2749,6 +2749,22 @@ body {
 }
 .chart-saving--off .chart-saving-dot { background: var(--txt3); }
 
+/* Cabeçalho do prontuário: tag de autosave à esquerda + botão Salvar. */
+.chart-prontuario-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+.chart-prontuario-head .chart-saving { margin-bottom: 14px; }
+.chart-save-btn {
+  margin-bottom: 14px;
+  padding: 6px 16px; border-radius: 100px;
+  background: var(--green); color: #fff; border: none;
+  font-family: var(--font-dm-sans), sans-serif;
+  font-size: 12px; font-weight: 600; cursor: pointer;
+  white-space: nowrap;
+}
+.chart-save-btn:hover { background: var(--green-d); }
+.chart-save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
 /* CID input editável (substitui o div mockado) */
 .chart-cid-input--editable {
   background: white;

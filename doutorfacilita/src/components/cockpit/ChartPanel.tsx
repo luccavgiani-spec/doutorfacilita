@@ -17,6 +17,9 @@ export type ChartPanelHandle = {
    *  Use quando o médico está encerrando a chamada pra evitar perder
    *  edições em voo. Resolve quando tudo foi salvo (ou ignorado em erro). */
   flushPending: () => Promise<void>;
+  /** Salva o prontuário carimbando finalized_at=now(). Chamado no
+   *  encerramento da consulta (ITEM 1) — fecha o prontuário do paciente. */
+  finalize: () => Promise<void>;
 };
 
 type Tab = "prontuario" | "historico" | "anamnese";
@@ -213,25 +216,26 @@ const ChartPanel = forwardRef<ChartPanelHandle, { consultationId?: string | null
 
   // ── Autosave Prontuário (upsert em medical_records) ──
   const saveProntuario = useCallback(
-    async (data: Prontuario) => {
+    async (data: Prontuario, opts?: { finalize?: boolean }) => {
       const sb = supabaseRef.current;
       if (!sb || !consultation || !consultation.doctor_id) return;
       prontuarioDirtyRef.current = false;
       setSavingProntuario(true);
-      const { error } = await sb.from("medical_records").upsert(
-        {
-          consultation_id: consultation.id,
-          patient_id: consultation.patient_id,
-          doctor_id: consultation.doctor_id,
-          chief_complaint: data.chief_complaint || null,
-          physical_exam: data.physical_exam || null,
-          history_present_illness: data.history_present_illness || null,
-          diagnostic_hypothesis: data.diagnostic_hypothesis || null,
-          cid10_codes: data.cid10_codes,
-          conduct: data.conduct || null,
-        },
-        { onConflict: "consultation_id" },
-      );
+      const row: Record<string, unknown> = {
+        consultation_id: consultation.id,
+        patient_id: consultation.patient_id,
+        doctor_id: consultation.doctor_id,
+        chief_complaint: data.chief_complaint || null,
+        physical_exam: data.physical_exam || null,
+        history_present_illness: data.history_present_illness || null,
+        diagnostic_hypothesis: data.diagnostic_hypothesis || null,
+        cid10_codes: data.cid10_codes,
+        conduct: data.conduct || null,
+      };
+      if (opts?.finalize) row.finalized_at = new Date().toISOString();
+      const { error } = await sb
+        .from("medical_records")
+        .upsert(row, { onConflict: "consultation_id" });
       setSavingProntuario(false);
       if (!error) setSavedAtProntuario(Date.now());
       else {
@@ -242,6 +246,10 @@ const ChartPanel = forwardRef<ChartPanelHandle, { consultationId?: string | null
     [consultation],
   );
   const debouncedSaveProntuario = useDebouncedCallback(saveProntuario, 800);
+  // Salvar manual: persiste já, ignorando o debounce.
+  const saveNow = useCallback(async () => {
+    await saveProntuario(prontuarioRef.current);
+  }, [saveProntuario]);
   function patchProntuario(patch: Partial<Prontuario>) {
     setProntuario((prev) => {
       const next = { ...prev, ...patch };
@@ -309,6 +317,9 @@ const ChartPanel = forwardRef<ChartPanelHandle, { consultationId?: string | null
         }
         await Promise.all(tasks);
       },
+      async finalize() {
+        await saveProntuario(prontuarioRef.current, { finalize: true });
+      },
     }),
     [saveProntuario, saveAnamnese],
   );
@@ -367,6 +378,7 @@ const ChartPanel = forwardRef<ChartPanelHandle, { consultationId?: string | null
             onChange={patchProntuario}
             onAddCid={addCid}
             onRemoveCid={removeCid}
+            onSave={saveNow}
           />
         )}
 
@@ -447,6 +459,7 @@ function ProntuarioForm({
   onChange,
   onAddCid,
   onRemoveCid,
+  onSave,
 }: {
   data: Prontuario;
   disabled: boolean;
@@ -455,11 +468,22 @@ function ProntuarioForm({
   onChange: (patch: Partial<Prontuario>) => void;
   onAddCid: (code: string) => void;
   onRemoveCid: (code: string) => void;
+  onSave: () => void | Promise<void>;
 }) {
   const [cidInput, setCidInput] = useState("");
   return (
     <>
-      <SavingTag saving={saving} savedAt={savedAt} disabled={disabled} />
+      <div className="chart-prontuario-head">
+        <SavingTag saving={saving} savedAt={savedAt} disabled={disabled} />
+        <button
+          type="button"
+          className="chart-save-btn"
+          onClick={() => void onSave()}
+          disabled={disabled || saving}
+        >
+          {saving ? "Salvando…" : "Salvar"}
+        </button>
+      </div>
 
       <div className="chart-section">
         <div className="chart-section-label">Queixa principal</div>
