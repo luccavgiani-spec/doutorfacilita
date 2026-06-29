@@ -26,19 +26,21 @@ export default function CockpitScreen({
   const [activeCall, setActiveCall] = useState<ActiveCallPayload | null>(null);
   const chartRef = useRef<ChartPanelHandle | null>(null);
 
-  // ── Split redimensionável vídeo ↔ prontuário/Mevo (vertical) ──────────
-  // Default dá MENOS espaço ao vídeo (38%) e MAIS ao painel Mevo (62%), para
-  // o iframe da Mevo (≥900px) caber confortavelmente. Persistido só em estado
-  // local (sem localStorage), como pedido.
-  const [videoPct, setVideoPct] = useState(38);
+  // ── Split redimensionável vídeo ↔ Mevo (vertical) ─────────────────────
+  // Vídeo com ALTURA FIXA em px (default 280) e reduzida, deixando o resto da
+  // coluna central para a Mevo renderizar a interface inteira (≥900px de
+  // largura garantidos pelo grid) sem precisar expandir. O divisor é opcional:
+  // o médico pode arrastar pra dar mais altura ao vídeo se quiser. Persistido
+  // só em estado local (sem localStorage), como pedido.
+  const [videoPx, setVideoPx] = useState(280);
   const mainRef = useRef<HTMLDivElement>(null);
   const draggingRef = useRef(false);
 
   const onDragMove = useCallback((e: MouseEvent) => {
     if (!draggingRef.current || !mainRef.current) return;
     const rect = mainRef.current.getBoundingClientRect();
-    const pct = ((e.clientY - rect.top) / rect.height) * 100;
-    setVideoPct(Math.min(80, Math.max(20, pct)));
+    const px = e.clientY - rect.top;
+    setVideoPx(Math.min(560, Math.max(160, px)));
   }, []);
 
   const stopDrag = useCallback(() => {
@@ -125,15 +127,14 @@ export default function CockpitScreen({
       />
 
       {/* ═══════════════════════════════════════════════════ */}
-      {/* MAIN — visor da telechamada + painel Mevo (embaixo)  */}
+      {/* MAIN — centro ≥900px: vídeo (topo, reduzido) +       */}
+      {/* card/iframe da Mevo inline e completo (embaixo).     */}
       {/* ═══════════════════════════════════════════════════ */}
       <div
         className="doc-main"
         ref={mainRef}
         style={{
-          gridTemplateRows: `minmax(0, ${videoPct}fr) 10px minmax(0, ${
-            100 - videoPct
-          }fr)`,
+          gridTemplateRows: `${videoPx}px 10px minmax(0, 1fr)`,
         }}
       >
         {activeCall ? (
@@ -155,74 +156,74 @@ export default function CockpitScreen({
           </div>
         )}
 
-        {/* Divisor redimensionável — arraste p/ dar mais espaço ao vídeo
-            ou ao painel de prontuário. */}
+        {/* Divisor redimensionável (opcional) — arraste p/ dar mais altura
+            ao vídeo. O default já mostra a Mevo inteira sem arrastar. */}
         <div
           className="doc-split-handle"
           onMouseDown={startDrag}
           role="separator"
           aria-orientation="horizontal"
-          aria-label="Redimensionar vídeo e prontuário"
-          title="Arraste para redimensionar"
+          aria-label="Redimensionar vídeo e Mevo"
+          title="Arraste para dar mais altura ao vídeo"
         />
 
         {/* ═══════════════════════════════════════════════════ */}
-        {/* PRONTUÁRIO / HISTÓRICO / ANAMNESE — centro, embaixo  */}
-        {/* do visor da telechamada. Dados reais por paciente +  */}
-        {/* autosave em medical_records (CFM 1.821/2007).        */}
+        {/* MEVO — card/iframe inline e completo, abaixo do      */}
+        {/* vídeo. O centro garante ≥900px, então a interface da */}
+        {/* Mevo renderiza inteira sem expandir nem overlay.     */}
         {/* ═══════════════════════════════════════════════════ */}
-        <ChartPanel ref={chartRef} consultationId={effectiveConsultationId} />
-      </div>
+        <div className="doc-actions">
 
-      {/* ═══════════════════════════════════════════════════ */}
-      {/* MEVO — coluna direita. Movido para fora do container  */}
-      {/* do LiveKit (que bugava o iframe); aqui tem largura     */}
-      {/* estável e o "Emitir" abre a modal em tela cheia.       */}
-      {/* ═══════════════════════════════════════════════════ */}
-      <div className="doc-actions">
-
-        {/* Header */}
-        <div className="actions-header">
-          <div className="actions-header-left">
-            <div>
-              <div className="actions-title-main">Documentos médicos</div>
-              <div className="actions-powered">
-                integração oficial ·
-                <span className="actions-powered-logo">mevo</span>
+          {/* Header */}
+          <div className="actions-header">
+            <div className="actions-header-left">
+              <div>
+                <div className="actions-title-main">Documentos médicos</div>
+                <div className="actions-powered">
+                  integração oficial ·
+                  <span className="actions-powered-logo">mevo</span>
+                </div>
               </div>
             </div>
           </div>
+
+          {/* CTA Mevo + subtítulo dinâmico + lista de prescrições (client component) */}
+          <MevoPrescricaoCard consultationId={effectiveConsultationId} />
+
+          {/* Tipos de documento disponíveis NA modal Mevo (informativo).
+              O médico NÃO escolhe o tipo aqui — a modal Mevo abre única e
+              o tipo é selecionado dentro dela. Lista fiel à doc v1.42 (p.18-19). */}
+          <div style={{ padding: "0 16px 16px" }}>
+            <details className="mevo-doctypes">
+              <summary>Tipos de documento disponíveis na modal Mevo</summary>
+              <div className="mevo-doctypes-list">
+                Receita simples · Controle especial · Manipulados<br />
+                Atestado · Solicitação de exame · Encaminhamento<br />
+                Laudo/Relatório · LME · Instrução
+              </div>
+              <div className="mevo-doctypes-note">
+                O tipo do documento é escolhido dentro da modal Mevo, não aqui.
+              </div>
+            </details>
+          </div>
+
+          {/* Finalização */}
+          <div className="actions-footer">
+            <button className="finish-btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              Encerrar e chamar próximo
+            </button>
+          </div>
+
         </div>
-
-        {/* CTA Mevo + subtítulo dinâmico + lista de prescrições (client component) */}
-        <MevoPrescricaoCard consultationId={effectiveConsultationId} />
-
-        {/* Tipos de documento disponíveis NA modal Mevo (informativo).
-            O médico NÃO escolhe o tipo aqui — a modal Mevo abre única e
-            o tipo é selecionado dentro dela. Lista fiel à doc v1.42 (p.18-19). */}
-        <div style={{ padding: "0 16px 16px" }}>
-          <details className="mevo-doctypes">
-            <summary>Tipos de documento disponíveis na modal Mevo</summary>
-            <div className="mevo-doctypes-list">
-              Receita simples · Controle especial · Manipulados<br />
-              Atestado · Solicitação de exame · Encaminhamento<br />
-              Laudo/Relatório · LME · Instrução
-            </div>
-            <div className="mevo-doctypes-note">
-              O tipo do documento é escolhido dentro da modal Mevo, não aqui.
-            </div>
-          </details>
-        </div>
-
-        {/* Finalização */}
-        <div className="actions-footer">
-          <button className="finish-btn">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            Encerrar e chamar próximo
-          </button>
-        </div>
-
       </div>
+
+      {/* ═══════════════════════════════════════════════════ */}
+      {/* PRONTUÁRIO / HISTÓRICO / ANAMNESE — coluna direita    */}
+      {/* (mais estreita). Dados reais por paciente + autosave  */}
+      {/* em medical_records (CFM 1.821/2007).                  */}
+      {/* ═══════════════════════════════════════════════════ */}
+      <ChartPanel ref={chartRef} consultationId={effectiveConsultationId} />
     </div>
   );
 }

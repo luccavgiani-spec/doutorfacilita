@@ -831,11 +831,16 @@ body {
 .cockpit-desktop {
   background: var(--bg); height: 100vh; min-height: 720px;
   display: grid;
-  grid-template-columns: 260px 1fr 380px;
+  /* CENTRO com min 900px garante que a interface da Mevo (layout fixo ≥900px)
+     renderize inteira inline. DIREITA mais estreita (min 320px). Em viewport
+     estreito demais para o centro de 900px, o overflow-x abaixo dá scroll
+     horizontal como fallback — nunca overlay. */
+  grid-template-columns: 250px minmax(900px, 1.6fr) minmax(320px, 1fr);
   grid-template-rows: 56px 1fr;
   grid-template-areas:
     "top top top"
     "queue main actions";
+  overflow-x: auto;
 }
 
 .doc-top {
@@ -1031,12 +1036,12 @@ body {
 }
 .doc-vid-timer-num { color: white; font-size: 12px; font-weight: 500; }
 
-/* ChartPanel agora vive no CENTRO, embaixo do vídeo (dentro de .doc-main).
-   Lê como card — mesmo border-radius do visor de vídeo — em vez de coluna. */
+/* ChartPanel ocupa a COLUNA DIREITA (grid-area: actions), mais estreita. */
 .doc-chart {
-  background: white;
-  border: 1px solid var(--hborder); border-radius: 14px;
+  grid-area: actions; background: white;
+  border-left: 1px solid var(--hborder);
   display: flex; flex-direction: column; overflow: hidden; min-height: 0;
+  min-width: 0;
 }
 .doc-chart-tabs {
   display: flex; padding: 8px 12px 0;
@@ -1123,13 +1128,14 @@ body {
    COCKPIT — ACTIONS PANEL (Mevo)
    ═══════════════════════════════════════════════════════════════ */
 
-/* Card Mevo agora ocupa a COLUNA DIREITA (grid-area: actions), no lugar
-   antes ocupado pelo ChartPanel. Tratamento de coluna (border-left, sem
-   radius) para casar com o resto do cockpit. */
+/* Card Mevo vive no CENTRO, embaixo do vídeo (3ª linha de .doc-main).
+   Card com radius casa com o visor de vídeo. overflow-x auto é só fallback
+   caso o centro fique no limite dos 900px; em telas largas não aparece. */
 .doc-actions {
-  grid-area: actions; background: white;
-  border-left: 1px solid var(--hborder);
-  overflow-y: auto; display: flex; flex-direction: column; min-height: 0;
+  background: white; border-radius: 14px;
+  border: 1px solid var(--hborder);
+  overflow-y: auto; overflow-x: auto;
+  display: flex; flex-direction: column; min-height: 0; min-width: 0;
 }
 
 .actions-header {
@@ -1159,9 +1165,10 @@ body {
   color: #8a6d00; font-weight: 600;
 }
 
-/* ─── Modal Mevo (inline + overlay de tela cheia) ──────────────────── */
+/* ─── Modal Mevo: SEMPRE inline no card do centro (≥900px garantidos pelo
+   grid). Sem overlay, sem botão de expandir. ───────────────────────── */
 .mevo-modal {
-  display: flex; flex-direction: column; gap: 8px; min-height: 560px;
+  display: flex; flex-direction: column; gap: 8px;
 }
 .mevo-modal-head {
   display: flex; justify-content: space-between; align-items: center;
@@ -1170,23 +1177,6 @@ body {
 .mevo-iframe {
   width: 100%; min-width: 900px; height: 700px;
   border: 1px solid var(--border); border-radius: 8px; background: #fff;
-}
-/* Tela cheia: overlay garante ≥900px independente da largura do card. */
-.mevo-modal--full {
-  position: fixed; inset: 0; z-index: 1200;
-  min-height: 0; gap: 0;
-  padding: 16px;
-  background: rgba(15, 18, 20, 0.6);
-  overflow: auto;
-}
-.mevo-modal--full .mevo-modal-head {
-  background: #fff; padding: 12px 16px;
-  border: 1px solid var(--border); border-bottom: none;
-  border-radius: 10px 10px 0 0;
-}
-.mevo-modal--full .mevo-iframe {
-  flex: 1; height: auto; min-height: 0;
-  border-radius: 0 0 10px 10px; border-top: none;
 }
 
 /* Confirmação de envio (SMS + e-mail) — só após prescrição finalizada. */
