@@ -9,6 +9,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { json, preflight, resolveDoctor } from "../_shared/http.ts";
+import { pick } from "../_shared/mevo-utils.ts";
 import type { MevoRespostaIniciar } from "../_shared/mevo-types.ts";
 
 Deno.serve(async (req) => {
@@ -103,7 +104,8 @@ Deno.serve(async (req) => {
     return json({ error: "mevo_resposta_invalida" }, 502);
   }
 
-  const modalUrl = resposta.url ?? resposta.link ?? null;
+  const modalUrl = pick(resposta as unknown as Record<string, unknown>, "ModalURL", "modalUrl", "url", "link");
+  if (!modalUrl) console.error("[mevo-reabrir] resposta sem ModalURL. Chaves recebidas:", Object.keys(resposta ?? {}));
   if (!modalUrl) {
     return json(
       { error: "mevo_sem_url", message: "Mevo não retornou URL da sessão." },

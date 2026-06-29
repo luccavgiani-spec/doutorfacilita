@@ -70,6 +70,10 @@ export interface MevoRespostaIniciar {
   qrcode_url?: string;
   codigoValidacao?: string;
   codigo_validacao?: string;
+  // Chaves PascalCase efetivamente retornadas pela Mevo (doc oficial).
+  ModalURL?: string;
+  QRCodeURL?: string;
+  CodigoValidacao?: string;
 }
 
 /** Forma normalizada que devolvemos ao frontend. */
