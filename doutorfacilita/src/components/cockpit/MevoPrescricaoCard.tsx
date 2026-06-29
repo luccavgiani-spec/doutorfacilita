@@ -28,7 +28,8 @@ type Estado =
   | { kind: "erro"; msg: string }
   | { kind: "nao_configurada" }
   | { kind: "salvando" }
-  | { kind: "salvo"; salvos: number; falhas: number };
+  | { kind: "salvo"; salvos: number; falhas: number }
+  | { kind: "tela_estreita" };
 
 // null = ainda checando.
 type ConfigCheck =
@@ -155,23 +156,20 @@ export default function MevoPrescricaoCard({
   }, [salvarDocumentos, fecharIframe, recarregarLista]);
 
   function abrirModal(url: string, prescricaoId: string) {
-    prescricaoAtivaRef.current = prescricaoId;
     const largura = wrapRef.current?.clientWidth ?? 0;
     if (largura > 0 && largura < MIN_IFRAME_W) {
-      // Card estreito → popup centralizado.
-      const w = 1000;
-      const h = 800;
-      const left = window.screenX + (window.outerWidth - w) / 2;
-      const top = window.screenY + (window.outerHeight - h) / 2;
-      window.open(
-        url,
-        "mevo_prescricao",
-        `width=${w},height=${h},left=${left},top=${top}`,
-      );
-      setEstado({ kind: "ocioso" });
-    } else {
-      setEstado({ kind: "modal", url, prescricaoId });
+      // Janela estreita → NÃO abrir popup. Um popup separado posta o evento
+      // para window.opener, que o listener (em window) não recebe → os PDFs
+      // (URLs S3 de 10 min) seriam perdidos silenciosamente. Bloqueia e pede
+      // pra ampliar. A prescrição já foi criada e fica disponível na lista
+      // para reabrir quando a janela estiver larga o suficiente.
+      prescricaoAtivaRef.current = null;
+      setEstado({ kind: "tela_estreita" });
+      recarregarLista();
+      return;
     }
+    prescricaoAtivaRef.current = prescricaoId;
+    setEstado({ kind: "modal", url, prescricaoId });
   }
 
   async function handleEmitir() {
@@ -336,6 +334,16 @@ export default function MevoPrescricaoCard({
             <div style={{ marginTop: 10 }}>
               <button type="button" className="mevo-start-btn" onClick={() => setEstado({ kind: "ocioso" })}>
                 Emitir outra prescrição
+              </button>
+            </div>
+          </div>
+        ) : estado.kind === "tela_estreita" ? (
+          <div className="mevo-state-warn">
+            🖥️ Amplie a janela para ≥900px para emitir a receita. A prescrição
+            foi criada e está disponível para reabrir na lista abaixo.
+            <div style={{ marginTop: 10 }}>
+              <button type="button" className="mevo-start-btn" onClick={() => setEstado({ kind: "ocioso" })}>
+                Entendi
               </button>
             </div>
           </div>
