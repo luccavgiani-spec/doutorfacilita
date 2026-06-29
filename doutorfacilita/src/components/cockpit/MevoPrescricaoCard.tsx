@@ -5,7 +5,6 @@ import { useMevoPrescricao } from "@/hooks/useMevoPrescricao";
 import type { EventoMevo, PrescricaoMevo } from "@/lib/mevo/types";
 
 const IS_DEV = process.env.NODE_ENV !== "production";
-const MIN_IFRAME_W = 900;
 
 // Origens confiáveis para mensagens postMessage vindas da iframe da Mevo.
 // Qualquer evento de outra origem é ignorado (defesa contra postMessage forjado).
@@ -28,8 +27,7 @@ type Estado =
   | { kind: "erro"; msg: string }
   | { kind: "nao_configurada" }
   | { kind: "salvando" }
-  | { kind: "salvo"; salvos: number; falhas: number }
-  | { kind: "tela_estreita" };
+  | { kind: "salvo"; salvos: number; falhas: number };
 
 // null = ainda checando.
 type ConfigCheck =
@@ -73,15 +71,10 @@ export default function MevoPrescricaoCard({
   } = useMevoPrescricao(consultationId);
 
   const [estado, setEstado] = useState<Estado>({ kind: "ocioso" });
-  // Modal Mevo em overlay de tela cheia (garante ≥900px independente da
-  // largura do card). Mantém a MESMA iframe montada — só troca a classe do
-  // container — para não recarregar/perder a sessão da prescrição.
-  const [fullscreen, setFullscreen] = useState(false);
   const [prescricoes, setPrescricoes] = useState<PrescricaoMevo[]>([]);
   const [docCounts, setDocCounts] = useState<Record<string, number>>({});
   const [config, setConfig] = useState<ConfigCheck>(null);
   const [qrUrl, setQrUrl] = useState<string | null>(null);
-  const wrapRef = useRef<HTMLDivElement>(null);
   // prescricaoId "ao vivo" — usado pelo listener de postMessage sem stale closure.
   const prescricaoAtivaRef = useRef<string | null>(null);
 
@@ -110,7 +103,6 @@ export default function MevoPrescricaoCard({
 
   const fecharIframe = useCallback(() => {
     prescricaoAtivaRef.current = null;
-    setFullscreen(false);
     setEstado({ kind: "ocioso" });
     recarregarLista();
   }, [recarregarLista]);
@@ -161,25 +153,9 @@ export default function MevoPrescricaoCard({
   }, [salvarDocumentos, fecharIframe, recarregarLista]);
 
   function abrirModal(url: string, prescricaoId: string) {
-    const largura = wrapRef.current?.clientWidth ?? 0;
-    const viewport = typeof window !== "undefined" ? window.innerWidth : 0;
-
-    // Guard mantido, mas agora raramente atingido: só quando NEM em tela cheia
-    // há 900px (viewport do navegador < 900). Aí não há como exibir o iframe.
-    if (viewport > 0 && viewport < MIN_IFRAME_W) {
-      prescricaoAtivaRef.current = null;
-      setEstado({ kind: "tela_estreita" });
-      recarregarLista();
-      return;
-    }
-
+    // A interface da Mevo renderiza SEMPRE inline no card do centro, que o
+    // grid garante com ≥900px. Sem overlay, sem expandir, sem guard de tela.
     prescricaoAtivaRef.current = prescricaoId;
-    // Card estreito (ou ainda não medido) mas viewport largo → abre já no
-    // overlay de tela cheia (garante ≥900px). A iframe vive em window (não
-    // popup), então o listener de postMessage continua capturando os PDFs.
-    // Na coluna direita (~380px) isso é sempre verdade: Emitir abre direto a
-    // interface da Mevo, sem nunca cair no aviso bloqueante em desktop.
-    setFullscreen(largura < MIN_IFRAME_W);
     setEstado({ kind: "modal", url, prescricaoId });
   }
 
@@ -266,25 +242,17 @@ export default function MevoPrescricaoCard({
       ultima.status === "finalizada_com_erro");
 
   return (
-    <div ref={wrapRef}>
+    <div>
       {/* ─── Subtítulo dinâmico ────────────────────────────────── */}
       <div className="mevo-subtitle">{subtitulo}</div>
 
       {/* ─── CTA / estados ─────────────────────────────────────── */}
       <div className="mevo-cta-wrap">
         {estado.kind === "modal" ? (
-          <div className={`mevo-modal${fullscreen ? " mevo-modal--full" : ""}`}>
+          <div className="mevo-modal">
             <div className="mevo-modal-head">
               <strong style={{ fontSize: 13 }}>Mevo Prescritores</strong>
               <div className="mevo-modal-actions">
-                <button
-                  type="button"
-                  className="doc-emitted-btn"
-                  onClick={() => setFullscreen((f) => !f)}
-                  title={fullscreen ? "Recolher" : "Expandir para tela cheia"}
-                >
-                  {fullscreen ? "Recolher ⤡" : "Expandir ⤢"}
-                </button>
                 <button
                   type="button"
                   className="doc-emitted-btn"
@@ -341,18 +309,6 @@ export default function MevoPrescricaoCard({
             <div style={{ marginTop: 10 }}>
               <button type="button" className="mevo-start-btn" onClick={() => setEstado({ kind: "ocioso" })}>
                 Emitir outra prescrição
-              </button>
-            </div>
-          </div>
-        ) : estado.kind === "tela_estreita" ? (
-          <div className="mevo-state-warn">
-            🖥️ A janela do navegador está abaixo de 900px. Normalmente o botão{" "}
-            <b>Expandir</b> da modal já resolve, mas aqui nem em tela cheia há
-            900px — amplie a janela do navegador para emitir a receita. A
-            prescrição foi criada e está disponível para reabrir na lista abaixo.
-            <div style={{ marginTop: 10 }}>
-              <button type="button" className="mevo-start-btn" onClick={() => setEstado({ kind: "ocioso" })}>
-                Entendi
               </button>
             </div>
           </div>
