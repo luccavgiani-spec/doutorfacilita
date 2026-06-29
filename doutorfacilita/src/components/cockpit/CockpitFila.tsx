@@ -12,33 +12,19 @@ interface CockpitFilaProps {
   activeConsultationId?: string | null;
 }
 
+// Espelha a view public.v_cockpit_fila: campos OPERACIONAIS apenas
+// (sem queixa/idade/gênero), pois a view fura a RLS por-médico para o board.
 type QueueItem = {
   id: string;
   status: string;
+  patient_id: string;
+  patient_name: string | null;
+  doctor_id: string | null;
+  doctor_name: string | null;
   queued_at: string | null;
+  started_at: string | null;
   created_at: string;
-  chief_complaint: string | null;
-  patient: {
-    id: string;
-    full_name: string | null;
-    birth_date: string | null;
-    gender: string | null;
-  } | null;
-  doctor: {
-    full_name: string | null;
-  } | null;
 };
-
-function calcAge(birthDate?: string | null): number | null {
-  if (!birthDate) return null;
-  const b = new Date(birthDate);
-  if (Number.isNaN(b.getTime())) return null;
-  const today = new Date();
-  let age = today.getFullYear() - b.getFullYear();
-  const m = today.getMonth() - b.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < b.getDate())) age--;
-  return age;
-}
 
 function minutesAgo(iso?: string | null): number {
   if (!iso) return 0;
@@ -73,15 +59,15 @@ export default function CockpitFila({ onCallNext, activeConsultationId }: Cockpi
       setError("NEXT_PUBLIC_SUPABASE_URL/ANON_KEY ausentes em .env.local");
       return;
     }
-    // Inclui quem aguarda (in_queue) E quem já está em atendimento (in_progress),
-    // para que o card permaneça visível com o rótulo "Atendendo - {médico}".
-    // O full_name do médico vem por embedding do PostgREST (não altera schema).
+    // Lê do board multi-médico: v_cockpit_fila já inclui in_queue não atribuído
+    // + TODOS os in_progress (de qualquer médico), com patient_name/doctor_name
+    // achatados. O filtro de status mora na própria view; "Chamar próximo" e
+    // demais writes continuam em consultations (RLS normal).
     const { data, error: e } = await sb
-      .from("consultations")
+      .from("v_cockpit_fila")
       .select(
-        "id, status, queued_at, created_at, chief_complaint, patient:patients(id, full_name, birth_date, gender), doctor:doctors(full_name)"
+        "id, status, patient_id, patient_name, doctor_id, doctor_name, queued_at, started_at, created_at"
       )
-      .in("status", ["in_queue", "in_progress"])
       .order("queued_at", { ascending: true, nullsFirst: false })
       .order("created_at", { ascending: true });
 
@@ -178,8 +164,11 @@ export default function CockpitFila({ onCallNext, activeConsultationId }: Cockpi
       )}
 
       {cards.map(({ c, pos }) => {
-        const age = calcAge(c.patient?.birth_date);
-        const since = minutesAgo(c.queued_at ?? c.created_at);
+        const since = minutesAgo(
+          c.status === "in_progress"
+            ? c.started_at ?? c.queued_at ?? c.created_at
+            : c.queued_at ?? c.created_at
+        );
         const isAttending = c.status === "in_progress";
         const isNext = !isAttending && c.id === firstWaitingId;
         return (
@@ -192,19 +181,16 @@ export default function CockpitFila({ onCallNext, activeConsultationId }: Cockpi
             <div className="queue-card-top">
               <div className="qc-pos">{isAttending ? "•" : pos}</div>
               <div className="qc-name">
-                <span className="qc-av">{initials(c.patient?.full_name)}</span>
-                {c.patient?.full_name ?? "Paciente"}
+                <span className="qc-av">{initials(c.patient_name)}</span>
+                {c.patient_name ?? "Paciente"}
               </div>
               <div className="qc-time">~{Math.max(1, since)} min</div>
             </div>
             <div className="queue-card-meta">
-              {age !== null ? `${age} anos · ` : ""}
-              <b>{c.chief_complaint ?? "Sem queixa informada"}</b>
-              <br />
               {isAttending ? (
                 <span className="qc-attending-label">
                   Atendendo
-                  {c.doctor?.full_name ? ` - ${c.doctor.full_name}` : ""}
+                  {c.doctor_name ? ` - ${c.doctor_name}` : ""}
                 </span>
               ) : (
                 <>Aguardando há {since} min</>
