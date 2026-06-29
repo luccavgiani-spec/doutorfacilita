@@ -7,6 +7,13 @@ import type { EventoMevo, PrescricaoMevo } from "@/lib/mevo/types";
 const IS_DEV = process.env.NODE_ENV !== "production";
 const MIN_IFRAME_W = 900;
 
+// Origens confiáveis para mensagens postMessage vindas da iframe da Mevo.
+// Qualquer evento de outra origem é ignorado (defesa contra postMessage forjado).
+const MEVO_EMBED_ORIGINS = [
+  "https://staging-embedded.nexodata.com.br", // homologação (confirmado)
+  "https://embedded.nexodata.com.br", // confirmar host de prod com a Mevo
+];
+
 // Fallback de exibição quando a probe ainda não respondeu.
 const AMBIENTE_FALLBACK =
   process.env.NEXT_PUBLIC_MEVO_AMBIENTE === "produção" ||
@@ -105,7 +112,8 @@ export default function MevoPrescricaoCard({
   // ─── Listener de mensagens da iframe Mevo ─────────────────────────
   useEffect(() => {
     async function handleMessage(event: MessageEvent) {
-      // TODO(prod): validar event.origin contra domínios oficiais da Mevo.
+      // Só aceita mensagens das origens oficiais da Mevo.
+      if (!MEVO_EMBED_ORIGINS.includes(event.origin)) return;
       const data = event.data as EventoMevo | undefined;
       const validos = ["cancel", "excluded", "prescricao"];
       if (!data || !validos.includes(data.type)) return;
