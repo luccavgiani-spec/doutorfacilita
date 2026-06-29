@@ -1031,9 +1031,11 @@ body {
 }
 .doc-vid-timer-num { color: white; font-size: 12px; font-weight: 500; }
 
+/* ChartPanel agora vive no CENTRO, embaixo do vídeo (dentro de .doc-main).
+   Lê como card — mesmo border-radius do visor de vídeo — em vez de coluna. */
 .doc-chart {
-  grid-area: actions; background: white;
-  border-left: 1px solid var(--hborder);
+  background: white;
+  border: 1px solid var(--hborder); border-radius: 14px;
   display: flex; flex-direction: column; overflow: hidden; min-height: 0;
 }
 .doc-chart-tabs {
@@ -1121,9 +1123,12 @@ body {
    COCKPIT — ACTIONS PANEL (Mevo)
    ═══════════════════════════════════════════════════════════════ */
 
+/* Card Mevo agora ocupa a COLUNA DIREITA (grid-area: actions), no lugar
+   antes ocupado pelo ChartPanel. Tratamento de coluna (border-left, sem
+   radius) para casar com o resto do cockpit. */
 .doc-actions {
-  background: white; border-radius: 14px;
-  border: 1px solid var(--hborder);
+  grid-area: actions; background: white;
+  border-left: 1px solid var(--hborder);
   overflow-y: auto; display: flex; flex-direction: column; min-height: 0;
 }
 

@@ -156,7 +156,7 @@ export default function CockpitScreen({
         )}
 
         {/* Divisor redimensionável — arraste p/ dar mais espaço ao vídeo
-            ou ao painel Mevo/prontuário. */}
+            ou ao painel de prontuário. */}
         <div
           className="doc-split-handle"
           onMouseDown={startDrag}
@@ -167,61 +167,62 @@ export default function CockpitScreen({
         />
 
         {/* ═══════════════════════════════════════════════════ */}
-        {/* ACTIONS PANEL — EXPANDIDO COM CAPACIDADES MEVO        */}
-        {/* (movido para baixo do visor da telechamada)          */}
+        {/* PRONTUÁRIO / HISTÓRICO / ANAMNESE — centro, embaixo  */}
+        {/* do visor da telechamada. Dados reais por paciente +  */}
+        {/* autosave em medical_records (CFM 1.821/2007).        */}
         {/* ═══════════════════════════════════════════════════ */}
-        <div className="doc-actions">
-
-          {/* Header */}
-          <div className="actions-header">
-            <div className="actions-header-left">
-              <div>
-                <div className="actions-title-main">Documentos médicos</div>
-                <div className="actions-powered">
-                  integração oficial ·
-                  <span className="actions-powered-logo">mevo</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* CTA Mevo + subtítulo dinâmico + lista de prescrições (client component) */}
-          <MevoPrescricaoCard consultationId={effectiveConsultationId} />
-
-          {/* Tipos de documento disponíveis NA modal Mevo (informativo).
-              O médico NÃO escolhe o tipo aqui — a modal Mevo abre única e
-              o tipo é selecionado dentro dela. Lista fiel à doc v1.42 (p.18-19). */}
-          <div style={{ padding: "0 16px 16px" }}>
-            <details className="mevo-doctypes">
-              <summary>Tipos de documento disponíveis na modal Mevo</summary>
-              <div className="mevo-doctypes-list">
-                Receita simples · Controle especial · Manipulados<br />
-                Atestado · Solicitação de exame · Encaminhamento<br />
-                Laudo/Relatório · LME · Instrução
-              </div>
-              <div className="mevo-doctypes-note">
-                O tipo do documento é escolhido dentro da modal Mevo, não aqui.
-              </div>
-            </details>
-          </div>
-
-          {/* Finalização */}
-          <div className="actions-footer">
-            <button className="finish-btn">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-              Encerrar e chamar próximo
-            </button>
-          </div>
-
-        </div>
+        <ChartPanel ref={chartRef} consultationId={effectiveConsultationId} />
       </div>
 
       {/* ═══════════════════════════════════════════════════ */}
-      {/* PRONTUÁRIO / HISTÓRICO / ANAMNESE — coluna direita    */}
-      {/* Dados reais por paciente + autosave em medical_records  */}
-      {/* (compliance CFM Resolução 1.821/2007).                  */}
+      {/* MEVO — coluna direita. Movido para fora do container  */}
+      {/* do LiveKit (que bugava o iframe); aqui tem largura     */}
+      {/* estável e o "Emitir" abre a modal em tela cheia.       */}
       {/* ═══════════════════════════════════════════════════ */}
-      <ChartPanel ref={chartRef} consultationId={effectiveConsultationId} />
+      <div className="doc-actions">
+
+        {/* Header */}
+        <div className="actions-header">
+          <div className="actions-header-left">
+            <div>
+              <div className="actions-title-main">Documentos médicos</div>
+              <div className="actions-powered">
+                integração oficial ·
+                <span className="actions-powered-logo">mevo</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* CTA Mevo + subtítulo dinâmico + lista de prescrições (client component) */}
+        <MevoPrescricaoCard consultationId={effectiveConsultationId} />
+
+        {/* Tipos de documento disponíveis NA modal Mevo (informativo).
+            O médico NÃO escolhe o tipo aqui — a modal Mevo abre única e
+            o tipo é selecionado dentro dela. Lista fiel à doc v1.42 (p.18-19). */}
+        <div style={{ padding: "0 16px 16px" }}>
+          <details className="mevo-doctypes">
+            <summary>Tipos de documento disponíveis na modal Mevo</summary>
+            <div className="mevo-doctypes-list">
+              Receita simples · Controle especial · Manipulados<br />
+              Atestado · Solicitação de exame · Encaminhamento<br />
+              Laudo/Relatório · LME · Instrução
+            </div>
+            <div className="mevo-doctypes-note">
+              O tipo do documento é escolhido dentro da modal Mevo, não aqui.
+            </div>
+          </details>
+        </div>
+
+        {/* Finalização */}
+        <div className="actions-footer">
+          <button className="finish-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Encerrar e chamar próximo
+          </button>
+        </div>
+
+      </div>
     </div>
   );
 }
