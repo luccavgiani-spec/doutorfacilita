@@ -1189,22 +1189,6 @@ body {
   font-size: 11px; line-height: 1.4;
 }
 
-/* Bloco informativo dos tipos de documento (substitui os 6 "atalhos"). */
-.mevo-doctypes {
-  border: 1px solid var(--hborder); border-radius: 10px;
-  background: var(--bg); padding: 10px 12px;
-}
-.mevo-doctypes > summary {
-  font-size: 11px; font-weight: 700; color: var(--txt2);
-  text-transform: uppercase; letter-spacing: 0.06em; cursor: pointer;
-}
-.mevo-doctypes-list {
-  margin-top: 8px; font-size: 11px; line-height: 1.7; color: var(--txt);
-}
-.mevo-doctypes-note {
-  margin-top: 6px; font-size: 10px; color: var(--txt3); line-height: 1.4;
-}
-
 /* Modal QR Code da prescrição. */
 .mevo-qr-overlay {
   position: fixed; inset: 0; z-index: 1000;
