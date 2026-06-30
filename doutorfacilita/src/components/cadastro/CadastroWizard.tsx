@@ -13,6 +13,7 @@ import {
   maskCep,
   maskDate,
   onlyDigits,
+  normalizarCelularBR,
   brDateToIso,
 } from "@/lib/forms/masks";
 import { fetchCep } from "@/lib/forms/viacep";
@@ -176,7 +177,7 @@ export default function CadastroWizard() {
           cpf: onlyDigits(data.cpf),
           birth_date: brDateToIso(data.data_nascimento),
           gender: data.genero,
-          celular: onlyDigits(data.telefone),
+          celular: normalizarCelularBR(data.telefone) ?? onlyDigits(data.telefone),
           endereco_completo: enderecoCompleto,
           alergias: data.alergias,
           // Endereço estruturado (trigger handle_new_user popula nas colunas dedicadas)

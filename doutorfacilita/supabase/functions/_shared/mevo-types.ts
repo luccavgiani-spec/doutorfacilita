@@ -24,14 +24,30 @@ export interface MevoProfissional {
   ReferenciaExterna: string; // doctors.id — idempotência/identificação do médico
 }
 
+/**
+ * Endereço estruturado do paciente (a modal Mevo pré-preenche os campos a
+ * partir deste objeto). A doc v1 lista `Paciente.Endereco` como string; por
+ * isso a Edge Function tenta o objeto e, em 412 citando Endereco, refaz com a
+ * string `endereco_completo`.
+ */
+export interface MevoEnderecoEstruturado {
+  Endereco1: string; // logradouro + número
+  Endereco2?: string; // complemento
+  Bairro: string;
+  Cidade: string;
+  Estado: string; // UF
+  CodigoPostal: string; // CEP (só dígitos)
+}
+
 /** Bloco Paciente do payload de iniciar prescrição. */
 export interface MevoPaciente {
   Nome: string;
   Documento: string; // CPF do paciente (só dígitos)
   DataNascimento?: string; // ISO yyyy-mm-dd
+  DataDeNascimento?: string; // experimento: variante do nome do campo de DOB
   Celular?: string; // DDD+numero, ex: 11991420955
   Email?: string;
-  Endereco?: string;
+  Endereco?: string | MevoEnderecoEstruturado;
   Alergias?: string[];
   ReferenciaExterna?: string; // patients.id
 }
