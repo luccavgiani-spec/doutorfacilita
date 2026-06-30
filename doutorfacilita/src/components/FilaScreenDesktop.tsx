@@ -1,5 +1,6 @@
 import { JoinConsultButton } from "@/components/fila/JoinConsultButton";
 import LogoutButton from "@/components/auth/LogoutButton";
+import { initials } from "@/lib/format/initials";
 
 /**
  * Fila desktop (≥1024px). Card central com ring grande, info e checagem técnica.
@@ -7,11 +8,14 @@ import LogoutButton from "@/components/auth/LogoutButton";
  */
 export default function FilaScreenDesktop({
   consultationId,
+  displayName,
   onEnterCall,
 }: {
   consultationId?: string;
+  displayName?: string;
   onEnterCall?: () => void;
 }) {
+  const nome = displayName?.trim() || "Você";
   return (
     <>
     <LogoutButton />
@@ -23,10 +27,10 @@ export default function FilaScreenDesktop({
             <span className="no-word">nó</span> telemed
           </div>
           <div className="fila-d-user">
-            <div className="fila-d-user-av">MA</div>
+            <div className="fila-d-user-av">{initials(nome)}</div>
             <div className="fila-d-user-info">
-              <b>Maria Almeida</b>
-              <span>Atendimento #8421</span>
+              <b>{nome}</b>
+              <span>Você está na fila</span>
             </div>
           </div>
         </div>

@@ -32,12 +32,14 @@ export default function FilaShell({ consultationId, displayName }: Props) {
       <div className="lg:hidden">
         <FilaScreen
           consultationId={consultationId}
+          displayName={displayName}
           onEnterCall={() => setInCall(true)}
         />
       </div>
       <div className="hidden lg:block">
         <FilaScreenDesktop
           consultationId={consultationId}
+          displayName={displayName}
           onEnterCall={() => setInCall(true)}
         />
       </div>
