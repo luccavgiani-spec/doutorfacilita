@@ -33,3 +33,32 @@ export async function hasConsultaPaga(userId: string): Promise<ConsultaAtiva | n
   if (!consulta) return null;
   return { id: consulta.id, status: consulta.status };
 }
+
+// Consulta ATIVA do paciente = na fila ou em atendimento. É o que a tela /fila
+// deve exigir (uma consulta 'completed' NÃO autoriza a sala de espera — o
+// paciente sem consulta ativa precisa pagar uma nova).
+const ATIVOS_FILA = ["in_queue", "in_progress"] as const;
+
+export async function getConsultaAtiva(userId: string): Promise<ConsultaAtiva | null> {
+  const supabase = await createClient();
+
+  const { data: patient } = await supabase
+    .from("patients")
+    .select("id")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (!patient) return null;
+
+  const { data: consulta } = await supabase
+    .from("consultations")
+    .select("id, status")
+    .eq("patient_id", patient.id)
+    .in("status", ATIVOS_FILA as unknown as string[])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!consulta) return null;
+  return { id: consulta.id, status: consulta.status };
+}
