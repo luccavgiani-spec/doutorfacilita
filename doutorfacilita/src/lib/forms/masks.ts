@@ -2,6 +2,21 @@ export function onlyDigits(value: string): string {
   return value.replace(/\D+/g, "");
 }
 
+/**
+ * Normaliza um celular BR para DDD+número (só dígitos): remove não-dígitos e,
+ * se vier com DDI "55" (12–13 dígitos), descarta-o. Retorna 10/11 dígitos ou
+ * `undefined` se inválido. Espelha _shared/mevo-utils.ts (runtimes distintos).
+ */
+export function normalizarCelularBR(
+  value: string | null | undefined,
+): string | undefined {
+  let d = (value ?? "").replace(/\D/g, "");
+  if (d.startsWith("55") && (d.length === 12 || d.length === 13)) {
+    d = d.slice(2);
+  }
+  return d.length === 10 || d.length === 11 ? d : undefined;
+}
+
 export function maskCpf(value: string): string {
   const d = onlyDigits(value).slice(0, 11);
   if (d.length <= 3) return d;

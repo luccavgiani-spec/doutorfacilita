@@ -17,3 +17,20 @@ export function pick(
   }
   return null;
 }
+
+/**
+ * Normaliza um celular brasileiro para o formato que a Mevo espera (DDD +
+ * número, só dígitos). Remove não-dígitos; se vier com DDI "55" (12–13
+ * dígitos), descarta-o. Retorna 10 ou 11 dígitos, ou `undefined` se inválido.
+ *
+ * Ex.: "+55 (11) 98765-4321" → "11987654321"; "1187654321" → "1187654321".
+ */
+export function normalizarCelularBR(
+  v: string | null | undefined,
+): string | undefined {
+  let d = (v ?? "").replace(/\D/g, "");
+  if (d.startsWith("55") && (d.length === 12 || d.length === 13)) {
+    d = d.slice(2);
+  }
+  return d.length === 10 || d.length === 11 ? d : undefined;
+}

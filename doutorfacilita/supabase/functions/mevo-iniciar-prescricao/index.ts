@@ -22,7 +22,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { json, preflight, resolveDoctor } from "../_shared/http.ts";
-import { pick } from "../_shared/mevo-utils.ts";
+import { normalizarCelularBR, pick } from "../_shared/mevo-utils.ts";
 import type {
   MevoErroValidacao,
   MevoIniciarPayload,
@@ -106,7 +106,7 @@ Deno.serve(async (req) => {
   const { data: patient, error: patientErr } = await admin
     .from("patients")
     .select(
-      "id, full_name, cpf, birth_date, celular, phone, email, endereco_completo, alergias",
+      "id, full_name, cpf, birth_date, celular, phone, email, endereco_completo, alergias, address_line, address_complement, neighborhood, city, state, postal_code",
     )
     .eq("id", consultation.patient_id)
     .maybeSingle();
@@ -161,9 +161,21 @@ Deno.serve(async (req) => {
       Nome: patient.full_name,
       Documento: onlyDigits(patient.cpf),
       DataNascimento: patient.birth_date ?? undefined,
-      Celular: onlyDigits(patient.celular || patient.phone) || undefined,
+      // Experimento (5.5): manda também a variante DataDeNascimento. Se a Mevo
+      // recusar com 412 citando data, o retry abaixo remove ambas e loga.
+      DataDeNascimento: patient.birth_date ?? undefined,
+      Celular: normalizarCelularBR(patient.celular || patient.phone),
       Email: patient.email ?? undefined,
-      Endereco: patient.endereco_completo ?? undefined,
+      // Endereço ESTRUTURADO (5.3) — a modal pré-preenche os campos a partir do
+      // objeto. Fallback p/ string `endereco_completo` no retry se der 412.
+      Endereco: {
+        Endereco1: patient.address_line ?? "",
+        Endereco2: patient.address_complement || undefined,
+        Bairro: patient.neighborhood ?? "",
+        Cidade: patient.city ?? "",
+        Estado: (patient.state ?? "").trim(),
+        CodigoPostal: onlyDigits(patient.postal_code),
+      },
       Alergias: Array.isArray(patient.alergias) && patient.alergias.length > 0
         ? patient.alergias
         : undefined,
@@ -180,21 +192,31 @@ Deno.serve(async (req) => {
   };
 
   // ─── Chama a Mevo ───────────────────────────────────────────────
+  const url = `${baseUrl.replace(/\/+$/, "")}/api/prescricao/iniciar`;
+  const chamarMevo = (p: MevoIniciarPayload) =>
+    fetch(url, {
+      method: "POST",
+      headers: {
+        "Authorization": `Basic ${authB64}`,
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+      },
+      body: JSON.stringify(p),
+      signal: AbortSignal.timeout(30_000),
+    });
+
+  const parseErros = async (r: Response): Promise<MevoErroValidacao[]> => {
+    try {
+      const j = await r.json();
+      return Array.isArray(j) ? j : [];
+    } catch {
+      return [];
+    }
+  };
+
   let mevoResp: Response;
   try {
-    mevoResp = await fetch(
-      `${baseUrl.replace(/\/+$/, "")}/api/prescricao/iniciar`,
-      {
-        method: "POST",
-        headers: {
-          "Authorization": `Basic ${authB64}`,
-          "Content-Type": "application/json",
-          "Accept": "application/json",
-        },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(30_000),
-      },
-    );
+    mevoResp = await chamarMevo(payload);
   } catch (e) {
     return json(
       { error: "mevo_unreachable", detail: e instanceof Error ? e.message : String(e) },
@@ -202,16 +224,50 @@ Deno.serve(async (req) => {
     );
   }
 
-  // 412 → array [{Entidade, Campo, Descricao}]
+  // 412 → array [{Entidade, Campo, Descricao}]. Estes campos (Endereco objeto +
+  // DataDeNascimento) são experimentos contra a doc; em 412 citando-os, refaz
+  // UMA vez com o formato seguro e loga o 412 — emissão nunca trava por isto.
+  let erros412: MevoErroValidacao[] = [];
   if (mevoResp.status === 412) {
-    let erros: MevoErroValidacao[] = [];
-    try {
-      erros = await mevoResp.json();
-    } catch { /* corpo não-JSON */ }
-    const legivel = (Array.isArray(erros) ? erros : [])
-      .map((e) =>
-        [e.Entidade, e.Campo, e.Descricao].filter(Boolean).join(" · ")
-      )
+    erros412 = await parseErros(mevoResp);
+    console.error("[mevo-iniciar] 412 (tentativa 1):", JSON.stringify(erros412));
+
+    const txt = JSON.stringify(erros412).toLowerCase();
+    const ajustarEndereco = txt.includes("endere");
+    const ajustarData = /(data|nasc)/.test(txt);
+
+    if (ajustarEndereco || ajustarData) {
+      const retry: MevoIniciarPayload = {
+        ...payload,
+        Paciente: { ...payload.Paciente },
+      };
+      if (ajustarEndereco) {
+        retry.Paciente.Endereco = patient.endereco_completo ?? undefined;
+      }
+      if (ajustarData) {
+        delete retry.Paciente.DataNascimento;
+        delete retry.Paciente.DataDeNascimento;
+      }
+      try {
+        mevoResp = await chamarMevo(retry);
+      } catch (e) {
+        return json(
+          { error: "mevo_unreachable", detail: e instanceof Error ? e.message : String(e) },
+          502,
+        );
+      }
+      erros412 = mevoResp.status === 412 ? await parseErros(mevoResp) : [];
+      if (mevoResp.status === 412) {
+        console.error("[mevo-iniciar] 412 (tentativa 2, formato seguro):", JSON.stringify(erros412));
+      }
+    }
+  }
+
+  // Se ainda 412 após o retry (ou 412 sem campo conhecido pra ajustar), devolve
+  // o erro de validação legível.
+  if (mevoResp.status === 412) {
+    const legivel = erros412
+      .map((e) => [e.Entidade, e.Campo, e.Descricao].filter(Boolean).join(" · "))
       .filter(Boolean);
     return json(
       {
@@ -219,7 +275,7 @@ Deno.serve(async (req) => {
         message: legivel.length
           ? "A Mevo recusou os dados: " + legivel.join("; ")
           : "A Mevo recusou os dados enviados (412).",
-        erros,
+        erros: erros412,
       },
       422,
     );
