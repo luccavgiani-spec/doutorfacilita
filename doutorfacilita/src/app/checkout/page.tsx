@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getAuthUser } from "@/lib/auth/getAuthUser";
 import { createClient } from "@/lib/supabase/server";
-import { hasConsultaPaga } from "@/lib/consultas/hasConsultaPaga";
+import { getConsultaAtiva } from "@/lib/consultas/hasConsultaPaga";
 import CheckoutForm from "@/components/checkout/CheckoutForm";
 
 function maskCpf(cpf: string | null | undefined): string {
@@ -24,7 +24,9 @@ export default async function CheckoutPage() {
     .maybeSingle();
   if (doctor) redirect("/cockpit");
 
-  const consulta = await hasConsultaPaga(user.id);
+  // Só bounce pra /fila se houver consulta ATIVA (in_queue|in_progress) — uma
+  // consulta 'completed' não impede comprar uma nova (senão loopava com /fila).
+  const consulta = await getConsultaAtiva(user.id);
   if (consulta) redirect(`/fila?consultation=${consulta.id}`);
 
   const { data: patient } = await supabase

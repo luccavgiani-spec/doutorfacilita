@@ -1,19 +1,19 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { hasConsultaPaga } from "@/lib/consultas/hasConsultaPaga";
+import { getConsultaAtiva } from "@/lib/consultas/hasConsultaPaga";
 import FilaShell from "@/components/fila/FilaShell";
 
 // Guard do funil:
-//   anônimo            → /login
-//   doctor             → /cockpit
-//   paciente sem paga  → /checkout
-//   paciente com paga  → renderiza FilaShell (que troca pra LiveKit quando
-//                        o paciente clicar "Entrar na Consulta")
-export default async function Page({
-  searchParams,
-}: {
-  searchParams: Promise<{ consultation?: string }>;
-}) {
+//   anônimo              → /login
+//   doctor               → /cockpit
+//   paciente SEM ativa   → /checkout (consulta 'completed' NÃO autoriza a fila)
+//   paciente COM ativa   → renderiza FilaShell (que troca pra LiveKit quando
+//                          o paciente clicar "Entrar na Consulta")
+//
+// Exige consulta ATIVA (in_queue|in_progress). O ?consultation= da URL é só
+// dica: a fonte de verdade é a consulta ativa do paciente autenticado — assim
+// um link/refresh apontando para uma consulta já concluída cai no /checkout.
+export default async function Page() {
   const supabase = await createClient();
   const {
     data: { user },
@@ -28,7 +28,7 @@ export default async function Page({
     .maybeSingle();
   if (doctor) redirect("/cockpit");
 
-  const consulta = await hasConsultaPaga(user.id);
+  const consulta = await getConsultaAtiva(user.id);
   if (!consulta) redirect("/checkout");
 
   const { data: patient } = await supabase
@@ -37,12 +37,9 @@ export default async function Page({
     .eq("user_id", user.id)
     .maybeSingle();
 
-  const { consultation } = await searchParams;
-  const id = consultation ?? consulta.id;
-
   return (
     <FilaShell
-      consultationId={id}
+      consultationId={consulta.id}
       displayName={patient?.full_name ?? user.email ?? ""}
     />
   );
