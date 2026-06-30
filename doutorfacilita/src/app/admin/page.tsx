@@ -41,26 +41,37 @@ export default async function AdminHome({
       .select("id", { count: "exact", head: true })
       .gte("created_at", since);
 
-  const [pagas, concluidas, noShows] = await Promise.all([
-    c().not("paid_at", "is", null),
-    c().eq("status", "completed"),
-    c().eq("status", "no_show"),
-  ]);
+  // ── Tabela de vendas (v_admin_sales) — builder com filtros ──
+  let vq = supabase
+    .from("v_admin_sales")
+    .select(
+      "consultation_id, sale_at, paid_at, queued_at, started_at, ended_at, status, amount_cents, payment_id, service_name, service_code, cancellation_reason, patient_name, patient_email, patient_phone, doctor_name",
+    )
+    .gte("sale_at", since)
+    .order("sale_at", { ascending: false })
+    .range(from, from + PAGE_SIZE);
+  if (sp.status) vq = vq.eq("status", sp.status);
+  if (sp.q)
+    vq = vq.or(`patient_name.ilike.%${sp.q}%,patient_email.ilike.%${sp.q}%`);
 
-  const nConcl = concluidas.count ?? 0;
-  const nNoShow = noShows.count ?? 0;
-  const taxaNoShow =
-    nConcl + nNoShow > 0 ? Math.round((nNoShow / (nConcl + nNoShow)) * 100) : 0;
-
-  // ── Receita + séries temporais ──
+  // Todas as leituras são independentes → um único Promise.all (1 ida à rede)
+  // em vez de 4 fases sequenciais para o Supabase (sa-east-1).
   const [
+    pagas,
+    concluidas,
+    noShows,
     { data: recRows },
     { data: estRows },
     { data: novosPacientesRows },
     { count: totalPacientes },
     { count: totalMedicosAtivos },
     { data: patientsForQuick },
+    { data: vendasRaw },
+    { data: docStats },
   ] = await Promise.all([
+    c().not("paid_at", "is", null),
+    c().eq("status", "completed"),
+    c().eq("status", "no_show"),
     supabase
       .from("consultations")
       .select("amount_cents, created_at, ended_at")
@@ -89,7 +100,19 @@ export default async function AdminHome({
       .select("id, full_name, email, cpf")
       .order("full_name", { ascending: true })
       .limit(500),
+    vq,
+    supabase
+      .from("v_admin_doctor_stats")
+      .select("doctor_name, total_atendimentos, receita_centavos")
+      .order("receita_centavos", { ascending: false })
+      .limit(20),
   ]);
+
+  const nConcl = concluidas.count ?? 0;
+  const nNoShow = noShows.count ?? 0;
+  const taxaNoShow =
+    nConcl + nNoShow > 0 ? Math.round((nNoShow / (nConcl + nNoShow)) * 100) : 0;
+
   const receita = (recRows ?? []).reduce(
     (s, r) => s + (Number(r.amount_cents) || 0),
     0,
@@ -116,29 +139,10 @@ export default async function AdminHome({
     Math.min(periodo, 90),
   ).map((b) => ({ dia: b.dia, novos: b.total }));
 
-  // ── Tabela de vendas (v_admin_sales) ──
-  let vq = supabase
-    .from("v_admin_sales")
-    .select(
-      "consultation_id, sale_at, paid_at, queued_at, started_at, ended_at, status, amount_cents, payment_id, service_name, service_code, cancellation_reason, patient_name, patient_email, patient_phone, doctor_name",
-    )
-    .gte("sale_at", since)
-    .order("sale_at", { ascending: false })
-    .range(from, from + PAGE_SIZE);
-  if (sp.status) vq = vq.eq("status", sp.status);
-  if (sp.q)
-    vq = vq.or(`patient_name.ilike.%${sp.q}%,patient_email.ilike.%${sp.q}%`);
-  const { data: vendasRaw } = await vq;
   const vendasAll = (vendasRaw ?? []) as Parameters<typeof SalesTable>[0]["rows"];
   const vendasHasNext = vendasAll.length > PAGE_SIZE;
   const vendas = vendasAll.slice(0, PAGE_SIZE);
 
-  // ── Stats por médico ──
-  const { data: docStats } = await supabase
-    .from("v_admin_doctor_stats")
-    .select("doctor_name, total_atendimentos, receita_centavos")
-    .order("receita_centavos", { ascending: false })
-    .limit(20);
   const docChart = (docStats ?? []).map((d) => ({
     doctor_name: (d.doctor_name as string) ?? "—",
     receita: Number(d.receita_centavos ?? 0) / 100,

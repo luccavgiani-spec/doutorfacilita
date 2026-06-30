@@ -6,6 +6,7 @@ import Modal from "@/components/ui/Modal";
 import { inviteDoctor, type InviteResult } from "@/app/admin/medicos/actions";
 import { useCpfCheck } from "@/hooks/useCpfCheck";
 import { CpfHint } from "@/components/admin/QuickActionsPanel";
+import { isValidCpf } from "@/lib/forms/validators";
 
 const UFS = [
   "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB",
@@ -21,7 +22,8 @@ export default function NewDoctorButton() {
   const [result, setResult] = useState<InviteResult | null>(null);
   const [cpf, setCpf] = useState("");
   const cpfCheck = useCpfCheck(cpf);
-  const cpfBlocked = cpfCheck.result?.exists === true;
+  const cpfInvalid = cpf.length === 11 && !isValidCpf(cpf);
+  const cpfBlocked = cpfCheck.result?.exists === true || cpfInvalid;
 
   function submit(formData: FormData) {
     if (cpfBlocked) return;
@@ -91,7 +93,13 @@ export default function NewDoctorButton() {
                 onChange={(e) => setCpf(e.target.value.replace(/\D/g, "").slice(0, 11))}
                 className={`${inputClass} ${cpfBlocked ? "border-red focus:border-red focus:ring-red/20" : ""}`}
               />
-              <CpfHint state={cpfCheck} />
+              {cpfInvalid ? (
+                <div className="mt-1 rounded-md border border-red bg-red-l px-2.5 py-1.5 text-xs font-medium text-red">
+                  ⚠ CPF inválido (dígitos verificadores não conferem).
+                </div>
+              ) : (
+                <CpfHint state={cpfCheck} />
+              )}
             </div>
 
             <div>
@@ -180,8 +188,8 @@ function SuccessBox({
             </button>
           </div>
           <div className="mt-2 text-[11px] text-txt-3">
-            Envie esta senha ao médico em um canal seguro. Recomendar troca no
-            primeiro login (não implementado ainda).
+            Envie esta senha ao médico em um canal seguro. A troca é obrigatória
+            no primeiro login.
           </div>
         </div>
       )}

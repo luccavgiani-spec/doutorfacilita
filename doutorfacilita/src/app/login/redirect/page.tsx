@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getUserRole } from "@/lib/auth/getUserRole";
+import { createClient } from "@/lib/supabase/server";
 
 // Cérebro do funil pós-login.
 //   doctor  → /cockpit (com consulta ativa se houver)
@@ -10,6 +11,15 @@ import { getUserRole } from "@/lib/auth/getUserRole";
 // getUserRole já resolve consultationId como a consulta ATIVA do papel
 // (in_queue|in_progress) — é a fonte única usada aqui para os dois papéis.
 export default async function LoginRedirectPage() {
+  // Contas criadas pelo admin com senha temporária: força troca antes de tudo.
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user?.user_metadata?.must_change_password === true) {
+    redirect("/trocar-senha");
+  }
+
   const { role, consultationId } = await getUserRole();
 
   if (role === "doctor") {

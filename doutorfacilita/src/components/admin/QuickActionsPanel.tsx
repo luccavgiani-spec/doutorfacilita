@@ -9,6 +9,9 @@ import {
   type QuickConsultaResult,
 } from "@/app/admin/actions";
 import { useCpfCheck } from "@/hooks/useCpfCheck";
+import { maskCep, maskPhone, onlyDigits } from "@/lib/forms/masks";
+import { fetchCep } from "@/lib/forms/viacep";
+import { UF_LIST } from "@/lib/forms/cadastroSchema";
 
 type Patient = { id: string; full_name: string | null; email: string | null; cpf: string | null };
 
@@ -122,25 +125,82 @@ function ActionCard({
   );
 }
 
-// ─── Modal: Novo paciente ───────────────────────────────────
+// ─── Modal: Novo paciente (completo, mesmos campos do /cadastrar) ─────
+const EMPTY_PACIENTE = {
+  full_name: "",
+  email: "",
+  celular: "",
+  birth_date: "",
+  gender: "",
+  cep: "",
+  address_line: "",
+  address_number: "",
+  address_complement: "",
+  neighborhood: "",
+  city: "",
+  state: "SP",
+};
+
 function NovoPacienteModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [pending, start] = useTransition();
   const [result, setResult] = useState<QuickPatientResult | null>(null);
   const [cpf, setCpf] = useState("");
+  const [f, setF] = useState({ ...EMPTY_PACIENTE });
+  const [allergies, setAllergies] = useState<string[]>([]);
+  const [alergiaInput, setAlergiaInput] = useState("");
+  const [cepLoading, setCepLoading] = useState(false);
   const cpfCheck = useCpfCheck(cpf);
   const cpfBlocked = cpfCheck.result?.exists === true;
 
-  function submit(formData: FormData) {
+  const set = (k: keyof typeof EMPTY_PACIENTE, v: string) =>
+    setF((prev) => ({ ...prev, [k]: v }));
+
+  async function handleCepBlur() {
+    const cep = onlyDigits(f.cep);
+    if (cep.length !== 8) return;
+    setCepLoading(true);
+    const res = await fetchCep(cep);
+    setCepLoading(false);
+    if (res) {
+      setF((prev) => ({
+        ...prev,
+        address_line: res.logradouro || prev.address_line,
+        neighborhood: res.bairro || prev.neighborhood,
+        city: res.cidade || prev.city,
+        state: (UF_LIST as readonly string[]).includes(res.uf) ? res.uf : prev.state,
+      }));
+    }
+  }
+
+  function addAlergia() {
+    const v = alergiaInput.trim();
+    if (!v || allergies.includes(v)) {
+      setAlergiaInput("");
+      return;
+    }
+    setAllergies((a) => [...a, v]);
+    setAlergiaInput("");
+  }
+
+  function submit() {
     if (cpfBlocked) return;
     setResult(null);
     start(async () => {
       const r = await quickCreatePatient({
-        full_name: String(formData.get("full_name") ?? ""),
-        email: String(formData.get("email") ?? ""),
-        cpf: String(formData.get("cpf") ?? ""),
-        celular: String(formData.get("celular") ?? ""),
-        birth_date: String(formData.get("birth_date") ?? "") || undefined,
-        gender: String(formData.get("gender") ?? "") || undefined,
+        full_name: f.full_name,
+        email: f.email,
+        cpf,
+        celular: f.celular,
+        birth_date: f.birth_date || undefined,
+        gender: f.gender || undefined,
+        postal_code: f.cep || undefined,
+        address_line: f.address_line || undefined,
+        address_number: f.address_number || undefined,
+        address_complement: f.address_complement || undefined,
+        neighborhood: f.neighborhood || undefined,
+        city: f.city || undefined,
+        state: f.state || undefined,
+        allergies,
       });
       setResult(r);
     });
@@ -149,6 +209,9 @@ function NovoPacienteModal({ open, onClose }: { open: boolean; onClose: () => vo
   function handleClose() {
     setResult(null);
     setCpf("");
+    setF({ ...EMPTY_PACIENTE });
+    setAllergies([]);
+    setAlergiaInput("");
     onClose();
   }
 
@@ -157,55 +220,158 @@ function NovoPacienteModal({ open, onClose }: { open: boolean; onClose: () => vo
       open={open}
       onClose={handleClose}
       title="Novo paciente"
-      subtitle="O paciente entra na base já ativo e pode fazer login com a senha temporária abaixo."
-      maxWidth={560}
+      subtitle="Mesmos campos do cadastro público. O paciente entra na base já ativo; a senha temporária é exibida abaixo (troca obrigatória no 1º login)."
+      maxWidth={620}
     >
       {result?.ok ? (
         <SuccessBox
           title="Paciente cadastrado"
-          desc="Compartilhe a senha temporária — recomendar troca no primeiro login."
+          desc="Compartilhe a senha temporária — troca obrigatória no primeiro login. Consentimento LGPD registrado."
           credentials={{ password: result.tempPassword }}
           onClose={handleClose}
         />
       ) : (
-        <form
-          action={submit}
-          className="grid grid-cols-1 gap-3 md:grid-cols-2"
-        >
-          <Field label="Nome completo*" name="full_name" required colSpan={2} />
-          <Field label="Email*" name="email" type="email" required />
-          <Field label="Celular* (só dígitos)" name="celular" inputMode="numeric" required maxLength={11} placeholder="11999990000" />
-          <div className="md:col-span-2">
-            <Label>CPF* (só dígitos)</Label>
-            <input
-              name="cpf"
-              required
-              inputMode="numeric"
-              maxLength={11}
-              placeholder="00000000000"
-              value={cpf}
-              onChange={(e) => setCpf(e.target.value.replace(/\D/g, "").slice(0, 11))}
-              className={`${inputClass} ${cpfBlocked ? "border-red focus:border-red focus:ring-red/20" : ""}`}
-            />
-            <CpfHint state={cpfCheck} />
-          </div>
-          <Field label="Nascimento" name="birth_date" type="date" />
-          <div>
-            <Label>Gênero</Label>
-            <select name="gender" className={inputClass} defaultValue="">
-              <option value="">—</option>
-              <option value="F">Feminino</option>
-              <option value="M">Masculino</option>
-              <option value="O">Outro</option>
-              <option value="N">Prefiro não informar</option>
-            </select>
-          </div>
+        <div className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto pr-1">
+          <Section title="Dados pessoais">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div className="md:col-span-2">
+                <Label>Nome completo*</Label>
+                <input className={inputClass} value={f.full_name} onChange={(e) => set("full_name", e.target.value)} />
+              </div>
+              <div>
+                <Label>Email* (recebe a receita)</Label>
+                <input className={inputClass} type="email" value={f.email} onChange={(e) => set("email", e.target.value)} />
+              </div>
+              <div>
+                <Label>Celular* (DDD + número)</Label>
+                <input
+                  className={inputClass}
+                  inputMode="numeric"
+                  placeholder="(11) 99999-9999"
+                  value={f.celular}
+                  onChange={(e) => set("celular", maskPhone(e.target.value))}
+                />
+              </div>
+              <div className="md:col-span-2">
+                <Label>CPF*</Label>
+                <input
+                  inputMode="numeric"
+                  maxLength={11}
+                  placeholder="00000000000"
+                  value={cpf}
+                  onChange={(e) => setCpf(e.target.value.replace(/\D/g, "").slice(0, 11))}
+                  className={`${inputClass} ${cpfBlocked ? "border-red focus:border-red focus:ring-red/20" : ""}`}
+                />
+                <CpfHint state={cpfCheck} />
+              </div>
+              <div>
+                <Label>Nascimento (YYYY-MM-DD)</Label>
+                <input className={inputClass} type="date" value={f.birth_date} onChange={(e) => set("birth_date", e.target.value)} />
+              </div>
+              <div>
+                <Label>Gênero</Label>
+                <select className={inputClass} value={f.gender} onChange={(e) => set("gender", e.target.value)}>
+                  <option value="">—</option>
+                  <option value="F">Feminino</option>
+                  <option value="M">Masculino</option>
+                  <option value="O">Outro</option>
+                  <option value="N">Prefiro não informar</option>
+                </select>
+              </div>
+            </div>
+          </Section>
+
+          <Section title="Endereço">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-6">
+              <div className="md:col-span-2">
+                <Label>CEP</Label>
+                <input
+                  className={inputClass}
+                  inputMode="numeric"
+                  placeholder="00000-000"
+                  value={f.cep}
+                  onChange={(e) => set("cep", maskCep(e.target.value))}
+                  onBlur={handleCepBlur}
+                />
+                {cepLoading && <div className="mt-1 text-xs text-txt-3">Buscando…</div>}
+              </div>
+              <div className="md:col-span-4">
+                <Label>Logradouro</Label>
+                <input className={inputClass} value={f.address_line} onChange={(e) => set("address_line", e.target.value)} />
+              </div>
+              <div className="md:col-span-2">
+                <Label>Número</Label>
+                <input className={inputClass} value={f.address_number} onChange={(e) => set("address_number", e.target.value)} />
+              </div>
+              <div className="md:col-span-4">
+                <Label>Complemento</Label>
+                <input className={inputClass} value={f.address_complement} onChange={(e) => set("address_complement", e.target.value)} />
+              </div>
+              <div className="md:col-span-3">
+                <Label>Bairro</Label>
+                <input className={inputClass} value={f.neighborhood} onChange={(e) => set("neighborhood", e.target.value)} />
+              </div>
+              <div className="md:col-span-2">
+                <Label>Cidade</Label>
+                <input className={inputClass} value={f.city} onChange={(e) => set("city", e.target.value)} />
+              </div>
+              <div className="md:col-span-1">
+                <Label>UF</Label>
+                <select className={inputClass} value={f.state} onChange={(e) => set("state", e.target.value)}>
+                  {UF_LIST.map((u) => <option key={u} value={u}>{u}</option>)}
+                </select>
+              </div>
+            </div>
+          </Section>
+
+          <Section title="Alergias">
+            <div className="flex gap-2">
+              <input
+                className={inputClass}
+                value={alergiaInput}
+                onChange={(e) => setAlergiaInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addAlergia();
+                  }
+                }}
+                placeholder="Ex.: dipirona"
+              />
+              <button
+                type="button"
+                onClick={addAlergia}
+                className="shrink-0 rounded-lg border border-border px-3 py-2 text-sm font-semibold text-txt-2 hover:bg-bg-3"
+              >
+                Adicionar
+              </button>
+            </div>
+            {allergies.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {allergies.map((a) => (
+                  <span key={a} className="inline-flex items-center gap-1 rounded-full bg-bg-3 px-2.5 py-1 text-xs font-medium">
+                    {a}
+                    <button
+                      type="button"
+                      onClick={() => setAllergies((cur) => cur.filter((x) => x !== a))}
+                      aria-label={`Remover ${a}`}
+                      className="text-txt-3 hover:text-red"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </Section>
+
           {result && !result.ok && (
-            <div className="col-span-full rounded-lg border border-red bg-red-l px-3 py-2 text-xs text-red">
+            <div className="rounded-lg border border-red bg-red-l px-3 py-2 text-xs text-red">
               {result.error}
             </div>
           )}
-          <div className="col-span-full mt-2 flex justify-end gap-2">
+
+          <div className="flex justify-end gap-2 border-t border-border pt-3">
             <button
               type="button"
               onClick={handleClose}
@@ -214,16 +380,26 @@ function NovoPacienteModal({ open, onClose }: { open: boolean; onClose: () => vo
               Cancelar
             </button>
             <button
-              type="submit"
+              type="button"
+              onClick={submit}
               disabled={pending || cpfBlocked || cpfCheck.loading}
-              className="rounded-lg bg-green px-4 py-2 text-sm font-semibold text-white hover:bg-green-d disabled:opacity-60 disabled:cursor-not-allowed"
+              className="rounded-lg bg-green px-4 py-2 text-sm font-semibold text-white hover:bg-green-d disabled:cursor-not-allowed disabled:opacity-60"
             >
               {pending ? "Criando…" : "Cadastrar paciente"}
             </button>
           </div>
-        </form>
+        </div>
       )}
     </Modal>
+  );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-txt-3">{title}</h3>
+      {children}
+    </div>
   );
 }
 
@@ -423,41 +599,6 @@ const inputClass =
 
 function Label({ children }: { children: React.ReactNode }) {
   return <label className="mb-1 block text-xs font-semibold text-txt-2">{children}</label>;
-}
-
-function Field({
-  label,
-  name,
-  type = "text",
-  required = false,
-  inputMode,
-  maxLength,
-  placeholder,
-  colSpan,
-}: {
-  label: string;
-  name: string;
-  type?: string;
-  required?: boolean;
-  inputMode?: "numeric" | "text" | "email";
-  maxLength?: number;
-  placeholder?: string;
-  colSpan?: 1 | 2;
-}) {
-  return (
-    <div className={colSpan === 2 ? "md:col-span-2" : undefined}>
-      <Label>{label}</Label>
-      <input
-        type={type}
-        name={name}
-        required={required}
-        inputMode={inputMode}
-        maxLength={maxLength}
-        placeholder={placeholder}
-        className={inputClass}
-      />
-    </div>
-  );
 }
 
 export function CpfHint({ state }: { state: ReturnType<typeof useCpfCheck> }) {

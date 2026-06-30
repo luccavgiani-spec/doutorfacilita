@@ -49,18 +49,17 @@ export default async function PacientesPage({
       `full_name.ilike.%${q}%,cpf.ilike.%${q}%,celular.ilike.%${q}%,email.ilike.%${q}%`,
     );
   }
-  const { data: rowsRaw, error } = await listQuery;
-  const all = (rowsRaw ?? []) as PatientRow[];
-  const hasNext = all.length > PAGE_SIZE;
-  const rows = all.slice(0, PAGE_SIZE);
-
+  // Lista + agregados num único Promise.all (1 ida à rede) em vez de a lista
+  // bloquear o resto numa fase separada.
   const [
+    { data: rowsRaw, error },
     { count: totalPacientes },
     { data: novosRows },
     { data: pacientesComConsultas },
     { data: receitaRows },
     { data: patientsForQuick },
   ] = await Promise.all([
+    listQuery,
     supabase.from("patients").select("id", { count: "exact", head: true }),
     supabase
       .from("patients")
@@ -84,6 +83,10 @@ export default async function PacientesPage({
       .order("full_name", { ascending: true })
       .limit(500),
   ]);
+
+  const all = (rowsRaw ?? []) as PatientRow[];
+  const hasNext = all.length > PAGE_SIZE;
+  const rows = all.slice(0, PAGE_SIZE);
 
   const totalNovos = novosRows?.length ?? 0;
 

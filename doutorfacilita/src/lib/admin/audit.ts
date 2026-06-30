@@ -27,7 +27,8 @@ export type EntityType =
   | "patient"
   | "doctor"
   | "template"
-  | "consultation";
+  | "consultation"
+  | "consent";
 
 export async function logAdminAction(params: {
   action: AuditAction;

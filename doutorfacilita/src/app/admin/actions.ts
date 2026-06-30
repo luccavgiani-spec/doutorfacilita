@@ -1,9 +1,16 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAdminAction } from "@/lib/admin/audit";
+import { isValidCpf } from "@/lib/forms/validators";
+import { normalizarCelularBR } from "@/lib/forms/masks";
+import {
+  LGPD_TERMS_VERSION,
+  lgpdTermsHash,
+} from "@/lib/legal/terms";
 
 const VALOR_CENTAVOS_AVULSA = 5900;
 
@@ -238,16 +245,31 @@ function formatCpf(d: string): string {
   return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
 }
 
-// ─── Quick action: criar paciente (sem signup completo) ──────────
-// Use service-role pra criar auth.users já confirmado com senha temporária,
-// e o trigger handle_new_user materializa a row em public.patients.
+// ─── Quick action: criar paciente completo (admin em nome do paciente) ───
+// Fonte única de campos/validações = /cadastrar (CadastroWizard + cadastroSchema).
+// Use service-role pra criar auth.users já confirmado com senha temporária; o
+// trigger handle_new_user materializa public.patients lendo as mesmas metadata
+// keys que o signUp do wizard envia (inclui endereço estruturado e alergias).
+//
+// Diferenças do wizard (cadastro feito PELO admin):
+//   - senha temporária gerada server-side, exibida 1x + must_change_password.
+//   - consentimento LGPD gravado em public.consents (não em coluna solta).
 type QuickPatientInput = {
   full_name: string;
   email: string;
-  cpf: string;          // só dígitos
-  celular: string;      // só dígitos (10-11)
+  cpf: string;          // só dígitos ou mascarado
+  celular: string;      // DDD+número (Anatel)
   birth_date?: string;  // YYYY-MM-DD
   gender?: string;      // F | M | O | N
+  // endereço estruturado (Mevo paciente)
+  postal_code?: string; // CEP, só dígitos
+  address_line?: string;
+  address_number?: string;
+  address_complement?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;       // UF
+  allergies?: string[];
 };
 
 export type QuickPatientResult =
@@ -258,11 +280,13 @@ export async function quickCreatePatient(
   input: QuickPatientInput,
 ): Promise<QuickPatientResult> {
   if (!input.full_name?.trim()) return { ok: false, error: "Nome obrigatório." };
-  if (!input.email?.trim()) return { ok: false, error: "Email obrigatório." };
-  if (input.cpf.replace(/\D/g, "").length !== 11)
-    return { ok: false, error: "CPF deve ter 11 dígitos." };
-  if (input.celular.replace(/\D/g, "").length < 10)
-    return { ok: false, error: "Celular inválido." };
+  if (!input.email?.trim()) return { ok: false, error: "Email obrigatório (a receita é enviada por ele)." };
+  const cpf = (input.cpf ?? "").replace(/\D/g, "");
+  if (!isValidCpf(cpf)) return { ok: false, error: "CPF inválido." };
+  const celular = normalizarCelularBR(input.celular);
+  if (!celular) return { ok: false, error: "Celular inválido (use DDD + número, ex.: 11991490932)." };
+  if (input.birth_date && !/^\d{4}-\d{2}-\d{2}$/.test(input.birth_date))
+    return { ok: false, error: "Data de nascimento deve estar em YYYY-MM-DD." };
 
   let admin;
   try {
@@ -277,6 +301,24 @@ export async function quickCreatePatient(
 
   const tempPassword = generateStrongPassword(12);
 
+  // Endereço completo (coluna legado) montado a partir das partes estruturadas.
+  const enderecoCompleto = [
+    [input.address_line?.trim(), input.address_number?.trim()].filter(Boolean).join(", "),
+    input.address_complement?.trim() || null,
+    input.neighborhood?.trim() || null,
+    [input.city?.trim(), input.state?.trim()].filter(Boolean).join("/") || null,
+    input.postal_code ? `CEP ${input.postal_code.replace(/\D/g, "")}` : null,
+  ]
+    .filter(Boolean)
+    .join(" - ");
+
+  const addressLine = [input.address_line?.trim(), input.address_number?.trim()]
+    .filter(Boolean)
+    .join(", ");
+
+  const nowIso = new Date().toISOString();
+  const alergias = (input.allergies ?? []).map((a) => a.trim()).filter(Boolean);
+
   const { data: created, error: createErr } = await admin.auth.admin.createUser({
     email: input.email.trim().toLowerCase(),
     password: tempPassword,
@@ -284,12 +326,23 @@ export async function quickCreatePatient(
     user_metadata: {
       role: "patient",
       full_name: input.full_name.trim(),
-      cpf: input.cpf.replace(/\D/g, ""),
-      celular: input.celular.replace(/\D/g, ""),
+      cpf,
+      celular,
       birth_date: input.birth_date || null,
       gender: input.gender || null,
+      endereco_completo: enderecoCompleto || null,
+      alergias,
+      // endereço estruturado (trigger handle_new_user popula colunas dedicadas)
+      address_line: addressLine || null,
+      address_complement: input.address_complement?.trim() || null,
+      neighborhood: input.neighborhood?.trim() || null,
+      city: input.city?.trim() || null,
+      state: input.state?.trim() || null,
+      postal_code: input.postal_code ? input.postal_code.replace(/\D/g, "") : null,
       accepts_communications: false,
-      terms_accepted_at: new Date().toISOString(),
+      terms_accepted_at: nowIso,
+      // Força troca no primeiro login (senha foi gerada pelo admin).
+      must_change_password: true,
     },
   });
 
@@ -311,11 +364,38 @@ export async function quickCreatePatient(
     };
   }
 
+  // Consentimento LGPD (dados de saúde) — grava em public.consents, imutável.
+  // ip/UA são do admin que registra em nome do paciente (metadata sinaliza).
+  const hdrs = await headers();
+  const ip =
+    hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    hdrs.get("x-real-ip") ||
+    "0.0.0.0";
+  const ua = hdrs.get("user-agent") || "admin-panel";
+  const { error: consentErr } = await admin.from("consents").insert({
+    patient_id: patientRow.id,
+    consent_type: "lgpd_dados_saude",
+    terms_version: LGPD_TERMS_VERSION,
+    terms_content_hash: lgpdTermsHash(),
+    accepted_at: nowIso,
+    ip_address: ip,
+    user_agent: `[admin] ${ua}`,
+  });
+  // Não falha o cadastro inteiro se o consent não gravar — mas audita o erro.
+  if (consentErr) {
+    await logAdminAction({
+      action: "create",
+      entity_type: "consent",
+      entity_id: patientRow.id,
+      metadata: { error: consentErr.message, consent_type: "lgpd_dados_saude" },
+    });
+  }
+
   await logAdminAction({
     action: "create",
     entity_type: "patient",
     entity_id: patientRow.id,
-    metadata: { email: input.email, via: "quick" },
+    metadata: { email: input.email, via: "quick", consent: !consentErr },
   });
 
   revalidatePath("/admin");
