@@ -1,13 +1,14 @@
 import { redirect } from "next/navigation";
 import { getUserRole } from "@/lib/auth/getUserRole";
-import { getAuthUser } from "@/lib/auth/getAuthUser";
-import { hasConsultaPaga } from "@/lib/consultas/hasConsultaPaga";
 
 // Cérebro do funil pós-login.
 //   doctor  → /cockpit (com consulta ativa se houver)
-//   patient → tem consulta paga? → /fila?consultation=<id>
-//             senão                → /checkout
+//   patient → consulta ATIVA (in_queue|in_progress)? → /fila?consultation=<id>
+//             senão (incl. só consultas concluídas)   → /checkout
 //   sem perfil → tela explicativa abaixo (fallback)
+//
+// getUserRole já resolve consultationId como a consulta ATIVA do papel
+// (in_queue|in_progress) — é a fonte única usada aqui para os dois papéis.
 export default async function LoginRedirectPage() {
   const { role, consultationId } = await getUserRole();
 
@@ -15,9 +16,7 @@ export default async function LoginRedirectPage() {
     redirect(consultationId ? `/cockpit?consultation=${consultationId}` : "/cockpit");
   }
   if (role === "patient") {
-    const user = await getAuthUser();
-    const consulta = user ? await hasConsultaPaga(user.id) : null;
-    if (consulta) redirect(`/fila?consultation=${consulta.id}`);
+    if (consultationId) redirect(`/fila?consultation=${consultationId}`);
     redirect("/checkout");
   }
 
