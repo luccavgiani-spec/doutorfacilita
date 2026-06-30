@@ -1,11 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
+import { initials } from "@/lib/format/initials";
 import {
   CallNextButton,
   type ActiveCallPayload,
 } from "@/components/cockpit/CallNextButton";
+import {
+  getFinalizadosHoje,
+  type FinalizadoItem,
+} from "@/app/cockpit/actions";
 
 interface CockpitFilaProps {
   onCallNext?: (payload: ActiveCallPayload) => void;
@@ -31,16 +37,27 @@ function minutesAgo(iso?: string | null): number {
   return Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60000));
 }
 
-function initials(name?: string | null): string {
-  if (!name) return "?";
-  const parts = name.trim().split(/\s+/);
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+function horaBRT(iso?: string | null): string {
+  if (!iso) return "--:--";
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(iso));
 }
+
+function duracaoMin(sec?: number | null): string | null {
+  if (sec == null || sec <= 0) return null;
+  return `${Math.max(1, Math.round(sec / 60))} min`;
+}
+
+type Tab = "aguardando" | "finalizados";
 
 export default function CockpitFila({ onCallNext, activeConsultationId }: CockpitFilaProps) {
   const [items, setItems] = useState<QueueItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState<Tab>("aguardando");
+  const [finalizados, setFinalizados] = useState<FinalizadoItem[] | null>(null);
   const [, setTick] = useState(0); // força re-render pra atualizar "Aguardando há Xmin"
 
   const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
@@ -79,12 +96,26 @@ export default function CockpitFila({ onCallNext, activeConsultationId }: Cockpi
     setItems((data ?? []) as unknown as QueueItem[]);
   }, []);
 
-  // Fetch inicial
+  // Finalizados de hoje (BRT) do médico logado — via server action service-role
+  // (a RLS de patients não libera nome para consultas concluídas).
+  const fetchFinalizados = useCallback(async () => {
+    try {
+      const rows = await getFinalizadosHoje();
+      setFinalizados(rows);
+    } catch (err) {
+      console.error("[CockpitFila] getFinalizadosHoje failed", err);
+      setFinalizados([]);
+    }
+  }, []);
+
+  // Fetch inicial (fila + finalizados).
   useEffect(() => {
     void fetchQueue();
-  }, [fetchQueue]);
+    void fetchFinalizados();
+  }, [fetchQueue, fetchFinalizados]);
 
-  // Realtime: qualquer mudança em consultations → refaz fetch (fila pequena).
+  // Realtime: qualquer mudança em consultations → refaz ambos os fetches
+  // (fila pequena). Listener registrado ANTES do .subscribe() (Realtime v2).
   useEffect(() => {
     const sb = supabaseRef.current;
     if (!sb) return;
@@ -95,13 +126,14 @@ export default function CockpitFila({ onCallNext, activeConsultationId }: Cockpi
       { event: "*", schema: "public", table: "consultations" },
       () => {
         void fetchQueue();
+        void fetchFinalizados();
       }
     );
     channel.subscribe();
     return () => {
       sb.removeChannel(channel);
     };
-  }, [fetchQueue]);
+  }, [fetchQueue, fetchFinalizados]);
 
   // Tick a cada 30s pra "Aguardando há Xmin" não congelar.
   useEffect(() => {
@@ -145,73 +177,139 @@ export default function CockpitFila({ onCallNext, activeConsultationId }: Cockpi
     ...waiting.map((c, i) => ({ c, pos: i + 1 })),
   ];
 
+  const finalizadosCount = finalizados?.length ?? 0;
+
   return (
     <div className="doc-queue">
       <div className="doc-queue-header">
         <div className="doc-queue-title">Fila de atendimento</div>
-        {/* Contagem reflete apenas quem está de fato aguardando. */}
-        <div className="doc-queue-count">{waiting.length}</div>
+        {/* Contagem reflete a aba ativa: aguardando vs finalizados de hoje. */}
+        <div className="doc-queue-count">
+          {tab === "aguardando" ? waiting.length : finalizadosCount}
+        </div>
       </div>
       <div className="doc-queue-filter">
-        <div className="doc-filter-tab active">Aguardando</div>
-        <div className="doc-filter-tab">Em espera</div>
+        <button
+          type="button"
+          className={`doc-filter-tab${tab === "aguardando" ? " active" : ""}`}
+          onClick={() => setTab("aguardando")}
+        >
+          Aguardando
+        </button>
+        <button
+          type="button"
+          className={`doc-filter-tab${tab === "finalizados" ? " active" : ""}`}
+          onClick={() => setTab("finalizados")}
+        >
+          Finalizados
+        </button>
       </div>
 
-      {cards.length === 0 && (
-        <div className="cockpit-queue-empty">
-          Nenhum paciente na fila no momento.
-        </div>
-      )}
+      {tab === "aguardando" ? (
+        <>
+          {cards.length === 0 && (
+            <div className="cockpit-queue-empty">
+              Nenhum paciente na fila no momento.
+            </div>
+          )}
 
-      {cards.map(({ c, pos }) => {
-        const since = minutesAgo(
-          c.status === "in_progress"
-            ? c.started_at ?? c.queued_at ?? c.created_at
-            : c.queued_at ?? c.created_at
-        );
-        const isAttending = c.status === "in_progress";
-        const isNext = !isAttending && c.id === firstWaitingId;
-        return (
-          <div
-            key={c.id}
-            className={`queue-card${isNext ? " is-next" : ""}${
-              isAttending ? " is-attending" : ""
-            }`}
-          >
-            <div className="queue-card-top">
-              <div className="qc-pos">{isAttending ? "•" : pos}</div>
-              <div className="qc-name">
-                <span className="qc-av">{initials(c.patient_name)}</span>
-                {c.patient_name ?? "Paciente"}
-              </div>
-              <div className="qc-time">~{Math.max(1, since)} min</div>
+          <AnimatePresence initial={false}>
+            {cards.map(({ c, pos }) => {
+              const since = minutesAgo(
+                c.status === "in_progress"
+                  ? c.started_at ?? c.queued_at ?? c.created_at
+                  : c.queued_at ?? c.created_at
+              );
+              const isAttending = c.status === "in_progress";
+              const isNext = !isAttending && c.id === firstWaitingId;
+              return (
+                <motion.div
+                  key={c.id}
+                  layout
+                  initial={{ opacity: 0, y: -12, scale: 0.96 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, x: 24, scale: 0.96 }}
+                  transition={{ duration: 0.28, ease: "easeOut" }}
+                  className={`queue-card${isNext ? " is-next" : ""}${
+                    isAttending ? " is-attending" : ""
+                  }`}
+                >
+                  <div className="queue-card-top">
+                    <div className="qc-pos">{isAttending ? "•" : pos}</div>
+                    <div className="qc-name">
+                      <span className="qc-av">{initials(c.patient_name)}</span>
+                      {c.patient_name ?? "Paciente"}
+                    </div>
+                    <div className="qc-time">~{Math.max(1, since)} min</div>
+                  </div>
+                  <div className="queue-card-meta">
+                    {isAttending ? (
+                      <span className="qc-attending-label">
+                        Atendendo
+                        {c.doctor_name ? ` - ${c.doctor_name}` : ""}
+                      </span>
+                    ) : (
+                      <>Aguardando há {since} min</>
+                    )}
+                  </div>
+                  {isNext && !activeConsultationId && (
+                    <CallNextButton
+                      consultationId={c.id}
+                      className="queue-card-btn"
+                      label="Chamar próximo"
+                      onSuccess={onCallNext}
+                    />
+                  )}
+                  {isNext && activeConsultationId && (
+                    <div className="qc-in-call">
+                      <span className="ld" /> atendendo agora
+                    </div>
+                  )}
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
+        </>
+      ) : (
+        <>
+          {finalizados === null && (
+            <div className="cockpit-queue-empty">Carregando…</div>
+          )}
+          {finalizados !== null && finalizados.length === 0 && (
+            <div className="cockpit-queue-empty">
+              Nenhuma consulta finalizada hoje.
             </div>
-            <div className="queue-card-meta">
-              {isAttending ? (
-                <span className="qc-attending-label">
-                  Atendendo
-                  {c.doctor_name ? ` - ${c.doctor_name}` : ""}
-                </span>
-              ) : (
-                <>Aguardando há {since} min</>
-              )}
-            </div>
-            {isNext && !activeConsultationId && (
-              <CallNextButton
-                consultationId={c.id}
-                className="queue-card-btn"
-                label="Chamar próximo"
-                onSuccess={onCallNext}
-              />
-            )}
-            {isNext && activeConsultationId && (
-              <div className="qc-in-call">
-                <span className="ld" /> atendendo agora
-              </div>
-            )}
-          </div>
-        );
-      })}
+          )}
+          <AnimatePresence initial={false}>
+            {(finalizados ?? []).map((f) => {
+              const dur = duracaoMin(f.duration_seconds);
+              return (
+                <motion.div
+                  key={f.id}
+                  layout
+                  initial={{ opacity: 0, y: -12, scale: 0.96 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, x: 24, scale: 0.96 }}
+                  transition={{ duration: 0.28, ease: "easeOut" }}
+                  className="queue-card is-done"
+                >
+                  <div className="queue-card-top">
+                    <div className="qc-pos">✓</div>
+                    <div className="qc-name">
+                      <span className="qc-av">{initials(f.patient_name)}</span>
+                      {f.patient_name ?? "Paciente"}
+                    </div>
+                    <div className="qc-time">{horaBRT(f.ended_at)}</div>
+                  </div>
+                  <div className="queue-card-meta">
+                    Finalizada{dur ? ` · ${dur}` : ""}
+                  </div>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
+        </>
+      )}
     </div>
   );
 }

@@ -904,6 +904,8 @@ body {
 .doc-filter-tab {
   flex: 1; text-align: center; font-size: 12px; padding: 6px;
   border-radius: 8px; cursor: pointer; color: var(--txt2); font-weight: 500;
+  /* Reset de <button>: a aba virou button (clicável). */
+  border: none; background: transparent; font-family: inherit;
 }
 .doc-filter-tab.active {
   background: white; color: var(--txt);
@@ -937,6 +939,9 @@ body {
 }
 .queue-card.is-attending .qc-pos { background: var(--yellow); color: #7a5a00; }
 .qc-attending-label { color: #7a5a00; font-weight: 600; }
+/* Aba "Finalizados": card de consulta concluída hoje. */
+.queue-card.is-done { cursor: default; opacity: 0.9; }
+.queue-card.is-done .qc-pos { background: var(--green); color: white; }
 .qc-av {
   width: 22px; height: 22px; border-radius: 50%;
   background: linear-gradient(135deg, var(--blue), var(--green));

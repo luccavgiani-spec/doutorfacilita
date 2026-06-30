@@ -1,5 +1,6 @@
 import { JoinConsultButton } from "@/components/fila/JoinConsultButton";
 import LogoutButton from "@/components/auth/LogoutButton";
+import { initials } from "@/lib/format/initials";
 
 /**
  * Tela Fila — Fila de espera do paciente (rota /fila)
@@ -8,11 +9,14 @@ import LogoutButton from "@/components/auth/LogoutButton";
  */
 export default function FilaScreen({
   consultationId,
+  displayName,
   onEnterCall,
 }: {
   consultationId?: string;
+  displayName?: string;
   onEnterCall?: () => void;
 }) {
+  const nome = displayName?.trim() || "Você";
   return (
     <>
     <LogoutButton />
@@ -35,10 +39,10 @@ export default function FilaScreen({
                   <span className="no-word">nó</span>
                 </div>
                 <div className="fila-m-user">
-                  <div className="fila-m-user-av">MA</div>
+                  <div className="fila-m-user-av">{initials(nome)}</div>
                   <div className="fila-m-user-info">
-                    <b>Maria Almeida</b>
-                    <span style={{color:'var(--txt2)'}}>#8421</span>
+                    <b>{nome}</b>
+                    <span style={{color:'var(--txt2)'}}>na fila</span>
                   </div>
                 </div>
               </div>

@@ -111,6 +111,10 @@ export async function finalizarCompra(
     .from("consultations")
     .update({
       status: "in_queue",
+      // Enfileira SEM médico: a atribuição só acontece no "chamar paciente"
+      // do cockpit (claim já existente). doctor_id explícito aqui torna o
+      // ponto de aprovação idempotente e blinda contra qualquer pré-atribuição.
+      doctor_id: null,
       paid_at: new Date().toISOString(),
       queued_at: new Date().toISOString(),
       payment_id: pay.payment_id,
