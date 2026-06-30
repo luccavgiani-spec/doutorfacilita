@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { DataTable, StatusBadge } from "@/components/ui/data-table";
 import MevoConfigCard from "@/components/admin/MevoConfigCard";
+import MevoFailuresAlert, { type FailureRow } from "@/components/admin/MevoFailuresAlert";
 import type { MevoConfig } from "@/app/admin/mevo/actions";
 
 const fmt = (d: string | null) =>
@@ -21,11 +22,26 @@ const DEFAULT_CFG: MevoConfig = {
 export default async function MevoPage() {
   const supabase = await createClient();
 
-  const { data: row } = await supabase
-    .from("integration_configs")
-    .select("enabled, ambiente, config")
-    .eq("id", "mevo")
-    .maybeSingle();
+  // As 3 leituras são independentes → uma única ida à rede (Promise.all) em vez
+  // de 3 round-trips sequenciais para o Supabase (sa-east-1).
+  const [{ data: row }, { data: presc }, { data: falhasRaw }] = await Promise.all([
+    supabase
+      .from("integration_configs")
+      .select("enabled, ambiente, config")
+      .eq("id", "mevo")
+      .maybeSingle(),
+    supabase
+      .from("prescricoes_mevo")
+      .select("id, status, ambiente, created_at, mevo_token, qrcode_url")
+      .order("created_at", { ascending: false })
+      .limit(50),
+    supabase
+      .from("v_failed_pdf_downloads")
+      .select(
+        "documento_id, prescricao_id, tipo_documento, categoria, download_attempted_at, download_error, seconds_since_attempt, recovery_status",
+      )
+      .limit(50),
+  ]);
 
   const c = (row?.config ?? {}) as Partial<MevoConfig>;
   const inicial: MevoConfig = {
@@ -35,13 +51,6 @@ export default async function MevoPage() {
     ambiente:
       (row?.ambiente as MevoConfig["ambiente"]) ?? DEFAULT_CFG.ambiente,
   };
-
-  // Dashboard: últimas 50 + agregados (todas — RLS admin enxerga tudo).
-  const { data: presc } = await supabase
-    .from("prescricoes_mevo")
-    .select("id, status, ambiente, created_at, mevo_token, qrcode_url")
-    .order("created_at", { ascending: false })
-    .limit(50);
 
   const lista = presc ?? [];
   const finalizadas = lista.filter((p) => p.status === "finalizada").length;
@@ -53,10 +62,7 @@ export default async function MevoPage() {
       ? Math.round((finalizadas / (finalizadas + comErro)) * 100)
       : null;
 
-  const { data: falhas } = await supabase
-    .from("v_failed_pdf_downloads")
-    .select("*")
-    .limit(50);
+  const falhas = (falhasRaw ?? []) as FailureRow[];
 
   return (
     <div className="flex flex-col gap-6">
@@ -78,10 +84,12 @@ export default async function MevoPage() {
         />
         <Kpi
           label="Falhas de download PDF"
-          value={String(falhas?.length ?? 0)}
-          tone={(falhas?.length ?? 0) > 0 ? "red" : "green"}
+          value={String(falhas.length)}
+          tone={falhas.length > 0 ? "red" : "green"}
         />
       </div>
+
+      <MevoFailuresAlert failures={falhas} />
 
       <section>
         <h2 className="mb-3 text-sm font-bold">Últimas 50 prescrições</h2>
@@ -89,8 +97,16 @@ export default async function MevoPage() {
           rows={lista as Record<string, unknown>[]}
           rowKey={(r) => r.id as string}
           columns={[
-            { key: "created_at", header: "Data", render: (r) => fmt(r.created_at as string) },
-            { key: "mevo_token", header: "Token", render: (r) => (r.mevo_token as string) ?? "—" },
+            { key: "created_at", header: "Data", className: "whitespace-nowrap", render: (r) => fmt(r.created_at as string) },
+            {
+              key: "mevo_token",
+              header: "Token",
+              render: (r) => (
+                <span className="block max-w-[200px] truncate font-mono text-xs" title={(r.mevo_token as string) ?? ""}>
+                  {(r.mevo_token as string) ?? "—"}
+                </span>
+              ),
+            },
             { key: "ambiente", header: "Ambiente" },
             {
               key: "status",
@@ -131,24 +147,6 @@ export default async function MevoPage() {
                 ),
             },
           ]}
-        />
-      </section>
-
-      <section>
-        <h2 className="mb-3 text-sm font-bold">
-          Falhas de download de PDF (v_failed_pdf_downloads)
-        </h2>
-        <DataTable
-          rows={(falhas ?? []) as Record<string, unknown>[]}
-          rowKey={(r, i) => String((r.id as string) ?? i)}
-          empty="Nenhuma falha de download registrada. 🎉"
-          columns={Object.keys((falhas?.[0] as object) ?? { info: 0 }).map(
-            (k) => ({
-              key: k,
-              header: k,
-              render: (r: Record<string, unknown>) => String(r[k] ?? "—"),
-            }),
-          )}
         />
       </section>
     </div>

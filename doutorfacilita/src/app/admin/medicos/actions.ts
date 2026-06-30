@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAdminAction } from "@/lib/admin/audit";
+import { isValidCpf } from "@/lib/forms/validators";
 
 /**
  * Concede/revoga papéis em user_roles. Soft-delete: conceder = INSERT nova
@@ -116,6 +117,13 @@ export async function inviteDoctor(input: InviteDoctorInput): Promise<InviteResu
   const adminUserId = await getAdminId(supabase);
   if (!adminUserId) return { ok: false, error: "Sessão expirada." };
 
+  // Validações server-side (não confiar só no client).
+  if (!input.full_name?.trim()) return { ok: false, error: "Nome obrigatório." };
+  if (!input.email?.trim()) return { ok: false, error: "Email obrigatório." };
+  if (!isValidCpf(input.cpf)) return { ok: false, error: "CPF inválido." };
+  if (!input.council_number?.trim())
+    return { ok: false, error: "Número de registro obrigatório." };
+
   let admin;
   try {
     admin = createAdminClient();
@@ -137,6 +145,8 @@ export async function inviteDoctor(input: InviteDoctorInput): Promise<InviteResu
     user_metadata: {
       role: "doctor",
       full_name: input.full_name,
+      // Senha gerada pelo admin → força troca no primeiro login.
+      must_change_password: true,
     },
   });
 
