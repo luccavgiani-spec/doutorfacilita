@@ -116,6 +116,7 @@ export default function CockpitFila({ onCallNext, activeConsultationId }: Cockpi
 
   // Realtime: qualquer mudança em consultations → refaz ambos os fetches
   // (fila pequena). Listener registrado ANTES do .subscribe() (Realtime v2).
+  // Caminho RÁPIDO (quando entrega) — o polling abaixo é a rede de segurança.
   useEffect(() => {
     const sb = supabaseRef.current;
     if (!sb) return;
@@ -129,17 +130,44 @@ export default function CockpitFila({ onCallNext, activeConsultationId }: Cockpi
         void fetchFinalizados();
       }
     );
-    channel.subscribe();
+
+    let active = true;
+    (async () => {
+      // postgres_changes é filtrado por RLS no servidor de realtime; sem o JWT
+      // do médico no socket, a policy consultations_doctor_queue_view nega a
+      // entrega (current_doctor_id() vira null). Seta o token ANTES do subscribe.
+      try {
+        const { data } = await sb.auth.getSession();
+        const tok = data.session?.access_token;
+        if (tok) sb.realtime.setAuth(tok);
+      } catch (err) {
+        console.error("[CockpitFila] realtime setAuth falhou", err);
+      }
+      if (!active) return;
+      channel.subscribe((st) => {
+        if (st === "CHANNEL_ERROR" || st === "TIMED_OUT" || st === "CLOSED") {
+          console.error("[CockpitFila] realtime status:", st);
+        }
+      });
+    })();
+
     return () => {
+      active = false;
       sb.removeChannel(channel);
     };
   }, [fetchQueue, fetchFinalizados]);
 
-  // Tick a cada 30s pra "Aguardando há Xmin" não congelar.
+  // Polling de segurança (10s): garante que a fila atualiza sozinha mesmo se o
+  // realtime não entregar o evento (entrega de postgres_changes c/ RLS é
+  // instável). Também mantém "Aguardando há Xmin" fresco via setTick.
   useEffect(() => {
-    const id = window.setInterval(() => setTick((n) => n + 1), 30_000);
+    const id = window.setInterval(() => {
+      setTick((n) => n + 1);
+      void fetchQueue();
+      void fetchFinalizados();
+    }, 10_000);
     return () => window.clearInterval(id);
-  }, []);
+  }, [fetchQueue, fetchFinalizados]);
 
   if (error) {
     return (
