@@ -35,15 +35,12 @@ export default async function CheckoutPage() {
     .eq("user_id", user.id)
     .maybeSingle();
 
-  const { data: flag } = await supabase
-    .from("feature_flags")
-    .select("enabled")
-    .eq("key", "checkout_stub_payment")
-    .maybeSingle();
+  // Public key do app de cartão (só ela vai pro browser — Access Token é secret).
+  const mpPublicKey = process.env.NEXT_PUBLIC_MP_PUBLIC_KEY_CARTAO ?? "";
 
   return (
     <CheckoutForm
-      stubEnabled={Boolean(flag?.enabled)}
+      mpPublicKey={mpPublicKey}
       patientName={patient?.full_name ?? user.email ?? ""}
       patientEmail={patient?.email ?? user.email ?? ""}
       patientCpf={maskCpf(patient?.cpf)}

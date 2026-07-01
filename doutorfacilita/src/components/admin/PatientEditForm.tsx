@@ -55,7 +55,28 @@ export default function PatientEditForm({
         <Field label="Telefone">
           <input className={input} value={p.phone} onChange={(e) => set("phone", e.target.value)} />
         </Field>
-        <Field label="Endereço completo">
+        <Field label="Logradouro (rua/av.)">
+          <input className={input} value={p.address_line} onChange={(e) => set("address_line", e.target.value)} />
+        </Field>
+        <Field label="Número">
+          <input className={input} value={p.address_number} onChange={(e) => set("address_number", e.target.value)} />
+        </Field>
+        <Field label="Complemento">
+          <input className={input} value={p.address_complement} onChange={(e) => set("address_complement", e.target.value)} />
+        </Field>
+        <Field label="Bairro">
+          <input className={input} value={p.neighborhood} onChange={(e) => set("neighborhood", e.target.value)} />
+        </Field>
+        <Field label="Cidade">
+          <input className={input} value={p.city} onChange={(e) => set("city", e.target.value)} />
+        </Field>
+        <Field label="UF">
+          <input className={input} maxLength={2} value={p.state} onChange={(e) => set("state", e.target.value.toUpperCase())} />
+        </Field>
+        <Field label="CEP">
+          <input className={input} value={p.postal_code} onChange={(e) => set("postal_code", e.target.value)} />
+        </Field>
+        <Field label="Endereço completo (texto livre — legado)">
           <input className={input} value={p.endereco_completo} onChange={(e) => set("endereco_completo", e.target.value)} />
         </Field>
       </div>

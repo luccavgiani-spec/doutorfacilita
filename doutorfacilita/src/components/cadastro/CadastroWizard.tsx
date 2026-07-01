@@ -163,9 +163,9 @@ export default function CadastroWizard() {
 
     const fullName = `${data.nome.trim()} ${data.sobrenome.trim()}`.trim();
 
-    const addressLine = [data.logradouro.trim(), data.numero.trim()]
-      .filter(Boolean)
-      .join(", ");
+    // address_line = logradouro puro; o número vai em address_number (coluna
+    // discreta) — o Mercado Pago exige street_name e street_number separados.
+    const addressLine = data.logradouro.trim();
 
     const { data: out, error } = await supabase.auth.signUp({
       email: data.email,
@@ -182,6 +182,7 @@ export default function CadastroWizard() {
           alergias: data.alergias,
           // Endereço estruturado (trigger handle_new_user popula nas colunas dedicadas)
           address_line: addressLine,
+          address_number: data.numero.trim(),
           address_complement: data.complemento?.trim() || null,
           neighborhood: data.bairro.trim(),
           city: data.cidade.trim(),
