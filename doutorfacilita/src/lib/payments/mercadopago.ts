@@ -1,128 +1,177 @@
-// Wrapper do Mercado Pago para pagamentos da consulta.
+// Helpers de cliente do Mercado Pago (Checkout Transparente).
 //
-// HOJE: stub. Sempre retorna sucesso e devolve um payment_id "STUB-...".
-// Quando as API keys forem configuradas em env, este módulo passa a chamar
-// `MercadoPagoConfig` + `Payment.create(...)` de verdade. Toda a troca é
-// concentrada AQUI — `actions.ts` permanece estável.
+// Toda a conversa com o MP acontece nas Edge Functions (mp-process-payment /
+// mp-webhook), que leem os access tokens dos secrets. Aqui no browser só:
+//   • carregamos o SDK v2 + security.js (device fingerprint)
+//   • invocamos as Edge Functions via supabase.functions.invoke
+//   • fazemos polling do status da consulta (PIX / 3DS)
 //
-// Env esperadas no futuro:
-//   MERCADOPAGO_ACCESS_TOKEN  — token de produção/test (server-side only)
-//   NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY — public key (se for usar Brick no client)
+// O Access Token NUNCA vem pro front — só a public key (tokenização do cartão).
 
-import type { CheckoutData } from "@/lib/forms/checkoutSchema";
+import { createClient } from "@/lib/supabase/client";
 
-export interface PaymentResult {
-  success: boolean;
-  payment_id: string;
-  status: "approved" | "pending" | "rejected";
-  raw?: unknown;
+export const MP_SDK_SRC = "https://sdk.mercadopago.com/js/v2";
+const SECURITY_SRC = "https://www.mercadopago.com/v2/security.js";
+
+// deno-lint-ignore no-explicit-any
+type AnyObj = Record<string, any>;
+
+export type ProcessResult =
+  | { status: "approved"; consultation_id: string }
+  | { status: "rejected"; status_detail?: string }
+  | { status: "challenge"; three_ds: { url: string }; payment_id?: string }
+  | {
+    status: "pending";
+    metodo?: "pix";
+    payment_id?: string;
+    qr_code?: string | null;
+    qr_code_base64?: string | null;
+    ticket_url?: string | null;
+  }
+  | { status: "error"; message: string; naoConfigurada?: boolean };
+
+/** Carrega um <script> uma única vez; resolve quando `ready` for verdade. */
+function loadScript(
+  src: string,
+  attrs: Record<string, string> = {},
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>(
+      `script[data-mp-src="${src}"]`,
+    );
+    if (existing) {
+      if (existing.dataset.loaded === "1") resolve();
+      else {
+        existing.addEventListener("load", () => resolve());
+        existing.addEventListener("error", () => reject(new Error("script_error")));
+      }
+      return;
+    }
+    const s = document.createElement("script");
+    s.src = src;
+    s.async = true;
+    s.dataset.mpSrc = src;
+    for (const [k, v] of Object.entries(attrs)) s.setAttribute(k, v);
+    s.addEventListener("load", () => {
+      s.dataset.loaded = "1";
+      resolve();
+    });
+    s.addEventListener("error", () => reject(new Error("script_error")));
+    document.head.appendChild(s);
+  });
 }
 
-export interface ConsultaPaymentContext {
-  consultationId: string;
-  amount_cents: number;
-  description: string;
-  payer: {
-    email: string;
-    name: string;
-    cpf: string; // só dígitos
-  };
-}
-
-export function isMercadoPagoConfigured(): boolean {
-  return Boolean(process.env.MERCADOPAGO_ACCESS_TOKEN);
+/** Garante o SDK v2 carregado (window.MercadoPago disponível). */
+export async function ensureMpSdk(): Promise<void> {
+  if ((window as AnyObj).MercadoPago) return;
+  await loadScript(MP_SDK_SRC);
 }
 
 /**
- * Cria um pagamento. Hoje stub. Mantenha a assinatura quando plugar o SDK real.
+ * Garante o security.js e devolve o MP_DEVICE_SESSION_ID.
+ * O script preenche window.MP_DEVICE_SESSION_ID de forma assíncrona → polling
+ * de até ~10s antes de desistir (device_id ausente não bloqueia, mas derruba
+ * a nota de qualidade, então tentamos ao máximo).
  */
-export async function createPayment(
-  ctx: ConsultaPaymentContext,
-  payload: CheckoutData,
-): Promise<PaymentResult> {
-  if (!isMercadoPagoConfigured()) {
-    return {
-      success: true,
-      payment_id: `STUB-${payload.method.toUpperCase()}-${crypto.randomUUID()}`,
-      status: "approved",
-    };
+export async function ensureDeviceId(): Promise<string | undefined> {
+  await loadScript(SECURITY_SRC, { view: "checkout", output: "MP_DEVICE_SESSION_ID" });
+  const deadline = Date.now() + 10_000;
+  while (Date.now() < deadline) {
+    const id = (window as AnyObj).MP_DEVICE_SESSION_ID as string | undefined;
+    if (id) return id;
+    await new Promise((r) => setTimeout(r, 300));
   }
+  return (window as AnyObj).MP_DEVICE_SESSION_ID as string | undefined;
+}
 
-  // ─── Quando MERCADOPAGO_ACCESS_TOKEN estiver configurado: ──────────
-  //
-  // IMPORTANTE — dois endpoints distintos do MP, escolhidos pela
-  // recomendação atual da Plantão Digital:
-  //
-  //   • PIX     → Payments API   (endpoint /v1/payments)
-  //   • Cartão  → Orders API     (endpoint /v1/orders, nova API "checkout")
-  //
-  // ── PIX (Payments API) ───────────────────────────────────────────
-  // import { MercadoPagoConfig, Payment } from "mercadopago";
-  // const mp = new MercadoPagoConfig({ accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN! });
-  // const payment = new Payment(mp);
-  //
-  // if (payload.method === "pix") {
-  //   const out = await payment.create({
-  //     body: {
-  //       transaction_amount: ctx.amount_cents / 100,
-  //       description: ctx.description,
-  //       payment_method_id: "pix",
-  //       payer: {
-  //         email: ctx.payer.email,
-  //         first_name: ctx.payer.name.split(" ")[0],
-  //         last_name: ctx.payer.name.split(" ").slice(1).join(" "),
-  //         identification: { type: "CPF", number: ctx.payer.cpf },
-  //       },
-  //       external_reference: ctx.consultationId,
-  //     },
-  //   });
-  //   // out.point_of_interaction.transaction_data → { qr_code, qr_code_base64, ticket_url }
-  //   return { success: true, payment_id: String(out.id), status: out.status as PaymentResult["status"], raw: out };
-  // }
-  //
-  // ── Cartão (Orders API) ──────────────────────────────────────────
-  // A Orders API substitui a chamada direta a /v1/payments para cartão e
-  // entrega uma única chamada que cria a order e processa o pagamento.
-  // Pode ser usada via fetch direto enquanto o SDK não expõe Orders nativo:
-  //
-  // const { month, year } = splitCardExpiry(payload.card_expiry);
-  // const cardToken = "<gerado no client via Brick/Tokenizer — ver SDK React>";
-  // const res = await fetch("https://api.mercadopago.com/v1/orders", {
-  //   method: "POST",
-  //   headers: {
-  //     "Content-Type": "application/json",
-  //     Authorization: `Bearer ${process.env.MERCADOPAGO_ACCESS_TOKEN}`,
-  //     "X-Idempotency-Key": ctx.consultationId,
-  //   },
-  //   body: JSON.stringify({
-  //     type: "online",
-  //     external_reference: ctx.consultationId,
-  //     transactions: {
-  //       payments: [{
-  //         amount: (ctx.amount_cents / 100).toFixed(2),
-  //         payment_method: {
-  //           id: "<bin-detected>",
-  //           type: "credit_card",
-  //           token: cardToken,
-  //           installments: payload.installments,
-  //         },
-  //       }],
-  //     },
-  //     payer: {
-  //       email: ctx.payer.email,
-  //       first_name: ctx.payer.name.split(" ")[0],
-  //       last_name: ctx.payer.name.split(" ").slice(1).join(" "),
-  //       identification: { type: "CPF", number: payload.cardholder_cpf },
-  //     },
-  //   }),
-  // });
-  // const out = await res.json();
-  // return { success: out.status === "processed", payment_id: String(out.id), status: out.status as PaymentResult["status"], raw: out };
+/** Lê o corpo JSON de um erro de functions.invoke (FunctionsHttpError). */
+async function parseInvokeError(
+  error: unknown,
+): Promise<{ message: string; naoConfigurada: boolean }> {
+  const ctx = (error as { context?: Response })?.context;
+  if (ctx && typeof ctx.json === "function") {
+    try {
+      const b = await ctx.clone().json();
+      return {
+        message: b.message ?? b.error ?? "Falha no pagamento.",
+        naoConfigurada: ctx.status === 503 || b.error === "mp_nao_configurada",
+      };
+    } catch {
+      /* corpo não-JSON */
+    }
+  }
+  const msg = error instanceof Error ? error.message : String(error);
+  return { message: msg, naoConfigurada: false };
+}
 
-  // Fallback defensivo enquanto a integração real não está plugada.
-  return {
-    success: true,
-    payment_id: `STUB-${payload.method.toUpperCase()}-${crypto.randomUUID()}`,
-    status: "approved",
-  };
+async function invokeProcess(body: AnyObj): Promise<ProcessResult> {
+  const supabase = createClient();
+  const { data, error } = await supabase.functions.invoke("mp-process-payment", {
+    body,
+  });
+  if (error) {
+    const parsed = await parseInvokeError(error);
+    return { status: "error", ...parsed };
+  }
+  return data as ProcessResult;
+}
+
+/** Cartão: já com o token do cardForm em mãos. */
+export function processCard(params: {
+  consultationId: string;
+  token: string;
+  paymentMethodId: string;
+  issuerId?: string;
+  installments: number;
+  deviceId?: string;
+}): Promise<ProcessResult> {
+  return invokeProcess({
+    consultation_id: params.consultationId,
+    metodo: "card",
+    token: params.token,
+    payment_method_id: params.paymentMethodId,
+    issuer_id: params.issuerId,
+    installments: params.installments,
+    device_id: params.deviceId,
+  });
+}
+
+/** PIX: gera o pagamento e devolve o QR. */
+export function processPix(consultationId: string): Promise<ProcessResult> {
+  return invokeProcess({ consultation_id: consultationId, metodo: "pix" });
+}
+
+/** Status atual da consulta (paciente lê a própria via RLS). */
+export async function fetchConsultaStatus(
+  consultationId: string,
+): Promise<string | null> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("consultations")
+    .select("status, paid_at")
+    .eq("id", consultationId)
+    .maybeSingle();
+  if (!data) return null;
+  // "pago" = paid_at preenchido (alinhado a hasConsultaPaga()).
+  return data.paid_at ? "paid" : (data.status ?? null);
+}
+
+/**
+ * Faz polling do status até "pago" (paid_at != null) ou timeout.
+ * Resolve true se pago; false no timeout. Usado por PIX e pelo challenge 3DS.
+ */
+export async function pollUntilPaid(
+  consultationId: string,
+  opts: { intervalMs?: number; timeoutMs?: number } = {},
+): Promise<boolean> {
+  const interval = opts.intervalMs ?? 3_000;
+  const deadline = Date.now() + (opts.timeoutMs ?? 10 * 60_000);
+  while (Date.now() < deadline) {
+    const st = await fetchConsultaStatus(consultationId);
+    if (st === "paid" || st === "in_queue" || st === "in_progress" || st === "completed") {
+      return true;
+    }
+    await new Promise((r) => setTimeout(r, interval));
+  }
+  return false;
 }

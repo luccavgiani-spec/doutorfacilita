@@ -10,6 +10,14 @@ export type PatientEdit = {
   phone: string;
   celular: string;
   endereco_completo: string;
+  // Endereço estruturado (fonte do payer.address do Mercado Pago).
+  address_line: string;
+  address_number: string;
+  address_complement: string;
+  neighborhood: string;
+  city: string;
+  state: string;
+  postal_code: string;
   alergias: string[];
   // CPF e birth_date NÃO editáveis aqui (regra do plano: CPF travado).
 };
@@ -27,6 +35,13 @@ export async function updatePatient(
       phone: p.phone || null,
       celular: p.celular || null,
       endereco_completo: p.endereco_completo || null,
+      address_line: p.address_line || null,
+      address_number: p.address_number || null,
+      address_complement: p.address_complement || null,
+      neighborhood: p.neighborhood || null,
+      city: p.city || null,
+      state: p.state || null,
+      postal_code: p.postal_code || null,
       alergias: p.alergias,
     })
     .eq("id", id);

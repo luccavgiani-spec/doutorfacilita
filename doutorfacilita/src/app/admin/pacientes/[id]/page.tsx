@@ -19,7 +19,7 @@ export default async function PacienteDetailPage({
   const { data: p } = await supabase
     .from("patients")
     .select(
-      "id, full_name, cpf, birth_date, gender, phone, celular, email, endereco_completo, alergias",
+      "id, full_name, cpf, birth_date, gender, phone, celular, email, endereco_completo, address_line, address_number, address_complement, neighborhood, city, state, postal_code, alergias",
     )
     .eq("id", id)
     .maybeSingle();
@@ -75,6 +75,13 @@ export default async function PacienteDetailPage({
           phone: p.phone ?? "",
           celular: p.celular ?? "",
           endereco_completo: p.endereco_completo ?? "",
+          address_line: p.address_line ?? "",
+          address_number: p.address_number ?? "",
+          address_complement: p.address_complement ?? "",
+          neighborhood: p.neighborhood ?? "",
+          city: p.city ?? "",
+          state: p.state ?? "",
+          postal_code: p.postal_code ?? "",
           alergias: (p.alergias as string[]) ?? [],
         }}
         cpf={p.cpf ?? "—"}
