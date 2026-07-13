@@ -155,6 +155,7 @@ export default function CheckoutForm({
       setProcessing(false);
       return;
     }
+    if (!deviceIdRef.current) console.warn("MP device_id indisponível");
     const res = await processCard({
       consultationId: current.consultationId,
       token: d.token,
@@ -262,7 +263,8 @@ export default function CheckoutForm({
     if (!prep) return;
     setError(null);
     setProcessing(true);
-    const res = await processPix(prep.consultationId);
+    if (!deviceIdRef.current) console.warn("MP device_id indisponível");
+    const res = await processPix(prep.consultationId, deviceIdRef.current);
     await handleResult(res, prep.consultationId);
   }
 
