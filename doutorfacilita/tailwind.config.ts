@@ -9,31 +9,31 @@ const config: Config = {
   theme: {
     extend: {
       // ────────────────────────────────────────────────────────
-      // Paleta Google da nó
+      // Paleta da marca — Plantão Digital
       // ────────────────────────────────────────────────────────
       colors: {
-        // Cores primárias
+        // Marca
         blue: {
-          DEFAULT: "#4285F4",
-          light: "#e8f0fe",
-          dark: "#1a73e8",
+          DEFAULT: "#1E5AE8",
+          light: "#E8F0FF",
+          dark: "#123FBF",
         },
         red: {
-          DEFAULT: "#EA4335",
-          light: "#fce8e6",
+          DEFAULT: "#EF4444",
+          light: "#FEE2E2",
         },
         yellow: {
-          DEFAULT: "#FBBC04",
-          light: "#fef9e3",
+          DEFAULT: "#F59E0B",
+          light: "#FEF3C7",
         },
         green: {
-          DEFAULT: "#34A853",
-          light: "#e6f4ea",
-          dark: "#2d8a45",
+          DEFAULT: "#10B981",
+          light: "#ECFDF5",
+          dark: "#0E9F6E",
         },
         // Neutros
-        dark: "#1a1a1a",
-        mid: "#5f6368",
+        dark: "#0B1B3A",
+        mid: "#55647E",
         light: "#f8f9fa",
         bg: {
           DEFAULT: "#f4f6f9",
@@ -42,14 +42,14 @@ const config: Config = {
           4: "#e8eaed",
         },
         txt: {
-          DEFAULT: "#1a1a1a",
-          2: "#5f6368",
-          3: "#9aa0a6",
+          DEFAULT: "#0B1B3A",
+          2: "#55647E",
+          3: "#8B97AD",
         },
         border: {
-          DEFAULT: "#e3e6ea",
-          h: "rgba(0,0,0,0.08)",
-          h2: "rgba(0,0,0,0.14)",
+          DEFAULT: "#E6ECF8",
+          h: "rgba(11,27,58,0.08)",
+          h2: "rgba(11,27,58,0.14)",
         },
         // Mevo (parceiro de prescrição)
         mevo: {

@@ -1,6 +1,7 @@
 import { JoinConsultButton } from "@/components/fila/JoinConsultButton";
 import LogoutButton from "@/components/auth/LogoutButton";
 import { initials } from "@/lib/format/initials";
+import { Logo } from "@/components/Logo";
 
 /**
  * Fila desktop (≥1024px). Card central com ring grande, info e checagem técnica.
@@ -22,9 +23,8 @@ export default function FilaScreenDesktop({
     <div className="fila-d">
       <header className="fila-d-top">
         <div className="fila-d-top-inner">
-          <div className="logo-no">
-            <span className="dots"><span></span><span></span><span></span><span></span></span>
-            <span className="no-word">nó</span> telemed
+          <div>
+            <Logo size={28} />
           </div>
           <div className="fila-d-user">
             <div className="fila-d-user-av">{initials(nome)}</div>

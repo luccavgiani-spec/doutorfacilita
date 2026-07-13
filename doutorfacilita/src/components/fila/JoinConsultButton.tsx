@@ -219,7 +219,7 @@ const waitingStyle: React.CSSProperties = {
 const readyStyle: React.CSSProperties = {
   background: "var(--blue)",
   color: "white",
-  boxShadow: "0 0 0 4px rgba(66,133,244,0.18), 0 8px 24px rgba(66,133,244,0.45)",
+  boxShadow: "0 0 0 4px rgba(30,90,232,0.18), 0 8px 24px rgba(30,90,232,0.45)",
   cursor: "pointer",
 };
 
