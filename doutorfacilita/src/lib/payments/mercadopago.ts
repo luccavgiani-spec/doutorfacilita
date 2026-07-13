@@ -137,8 +137,15 @@ export function processCard(params: {
 }
 
 /** PIX: gera o pagamento e devolve o QR. */
-export function processPix(consultationId: string): Promise<ProcessResult> {
-  return invokeProcess({ consultation_id: consultationId, metodo: "pix" });
+export function processPix(
+  consultationId: string,
+  deviceId?: string,
+): Promise<ProcessResult> {
+  return invokeProcess({
+    consultation_id: consultationId,
+    metodo: "pix",
+    device_id: deviceId,
+  });
 }
 
 /** Status atual da consulta (paciente lê a própria via RLS). */
