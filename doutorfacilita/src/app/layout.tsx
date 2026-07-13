@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Plantão Digital — Consulta médica online por R$ 59",
+  title: "Plantão Digital — Consulta médica online por R$ 39,90",
   description:
     "Atendimento médico por vídeo em até 10 minutos. Sem agendamento. Receita digital, atestado e exames pelo celular. CRM ativo, LGPD, conformidade CFM.",
   metadataBase: new URL("https://plantaodigital.com.br"),
