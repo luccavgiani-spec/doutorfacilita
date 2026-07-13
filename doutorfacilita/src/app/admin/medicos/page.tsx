@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { DataTable, Pagination } from "@/components/ui/data-table";
 import MedicoRoleToggles from "@/components/admin/MedicoRoleToggles";
 import NewDoctorButton from "@/components/admin/NewDoctorButton";
+import EditDoctorButton from "@/components/admin/EditDoctorButton";
 import type { AdminRole } from "@/app/admin/medicos/actions";
 
 const PAGE_SIZE = 25;
@@ -18,6 +19,8 @@ type Doctor = {
   council_number: string | null;
   primary_specialty: string | null;
   email: string | null;
+  cpf: string | null;
+  phone: string | null;
 };
 
 export default async function MedicosPage({
@@ -34,7 +37,7 @@ export default async function MedicosPage({
   let query = supabase
     .from("doctors")
     .select(
-      "id, user_id, full_name, council, council_state, council_number, primary_specialty, email",
+      "id, user_id, full_name, council, council_state, council_number, primary_specialty, email, cpf, phone",
     )
     .order("full_name", { ascending: true })
     .range(from, from + PAGE_SIZE); // +1 p/ detectar próxima página
@@ -161,6 +164,11 @@ export default async function MedicosPage({
                 />
               );
             },
+          },
+          {
+            key: "acoes",
+            header: "Ações",
+            render: (d) => <EditDoctorButton doctor={d} />,
           },
         ]}
       />

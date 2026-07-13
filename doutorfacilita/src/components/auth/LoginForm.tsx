@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Logo } from "@/components/Logo";
+import { Logo, LogoMark } from "@/components/Logo";
 
 export default function LoginForm() {
   const [email, setEmail] = useState("");
@@ -50,16 +50,47 @@ export default function LoginForm() {
         </div>
       </header>
 
-      <main className="auth-main">
-        <div className="auth-card">
-          <span className="auth-eyebrow">acesso</span>
-          <h1 className="auth-h1">entrar</h1>
-          <p className="auth-sub">
-            Bom te ver de volta. Entre com seu email e senha para continuar sua
-            consulta.
-          </p>
+      <main className="auth-main auth-main--split">
+        <div className="auth-split">
+          <aside className="auth-split-brand">
+            <div className="auth-split-badge">
+              <span className="auth-split-badge-mark">
+                <LogoMark size={30} />
+              </span>
+              <span className="auth-split-wordmark">Plantão Digital</span>
+            </div>
+            <h2 className="auth-split-title">
+              Cuidado médico sem sair de casa.
+            </h2>
+            <p className="auth-split-text">
+              Consulta por vídeo com médicos de verdade, na hora que você
+              precisar.
+            </p>
+            <ul className="auth-split-list">
+              <li>
+                <span className="auth-split-check" aria-hidden>✓</span>
+                Consulta a partir de R$ 39,90
+              </li>
+              <li>
+                <span className="auth-split-check" aria-hidden>✓</span>
+                Atendimento em até 10 minutos
+              </li>
+              <li>
+                <span className="auth-split-check" aria-hidden>✓</span>
+                Médicos com registro ativo
+              </li>
+            </ul>
+          </aside>
 
-          <form className="auth-form" onSubmit={handleSubmit} noValidate>
+          <div className="auth-split-form">
+            <span className="auth-eyebrow">acesso</span>
+            <h1 className="auth-h1">entrar</h1>
+            <p className="auth-sub">
+              Bom te ver de volta. Entre com seu email e senha para continuar sua
+              consulta.
+            </p>
+
+            <form className="auth-form" onSubmit={handleSubmit} noValidate>
             <div className="auth-field">
               <label className="auth-label" htmlFor="email">Email</label>
               <input
@@ -99,20 +130,12 @@ export default function LoginForm() {
             >
               {loading ? "Entrando..." : "Entrar"}
             </button>
-          </form>
+            </form>
 
-          <p className="auth-foot">
-            Ainda não tem conta? <Link href="/cadastrar">Criar conta</Link>
-          </p>
-
-          <details className="auth-details">
-            <summary>Credenciais de teste (dev)</summary>
-            <div className="auth-details-body">
-              <strong>Médico:</strong> medico-teste@doutorfacilita.test / Test1234!
-              <br />
-              <strong>Paciente:</strong> paciente-teste@doutorfacilita.test / Test1234!
-            </div>
-          </details>
+            <p className="auth-foot">
+              Ainda não tem conta? <Link href="/cadastrar">Criar conta</Link>
+            </p>
+          </div>
         </div>
       </main>
     </div>

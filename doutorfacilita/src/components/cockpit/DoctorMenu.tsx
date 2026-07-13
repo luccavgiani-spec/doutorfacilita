@@ -13,9 +13,11 @@ import { createClient } from "@/lib/supabase/client";
 export default function DoctorMenu({
   nome,
   sub,
+  avatarUrl,
 }: {
   nome: string;
   sub: string;
+  avatarUrl?: string | null;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -64,7 +66,17 @@ export default function DoctorMenu({
         aria-haspopup="menu"
         aria-expanded={open}
       >
-        <div className="doc-user-av">{iniciais(nome)}</div>
+        {avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            className="doc-user-av"
+            src={avatarUrl}
+            alt={nome}
+            style={{ objectFit: "cover", padding: 0 }}
+          />
+        ) : (
+          <div className="doc-user-av">{iniciais(nome)}</div>
+        )}
         <div className="doc-user-info" style={{ textAlign: "left" }}>
           <b>{nome}</b>
           <span style={{ color: "var(--txt2)" }}>{sub}</span>

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
+import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { uploadAvatarFoto } from "@/app/area-do-medico/actions";
 
 // TODO(fase-1): validar CPF/CRM e mascarar inputs quando a auth completa entrar.
 
@@ -39,16 +40,57 @@ export default function PerfilForm({
   userId,
   email,
   inicial,
+  avatarInicial,
 }: {
   userId: string;
   email: string;
   inicial: PerfilData;
+  avatarInicial: string | null;
 }) {
   const [perfil, setPerfil] = useState<PerfilData>(inicial);
   const [loginEmail, setLoginEmail] = useState(email);
   const [novaSenha, setNovaSenha] = useState("");
   const [salvando, setSalvando] = useState(false);
   const [toast, setToast] = useState<Toast>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(avatarInicial);
+  const [enviandoFoto, setEnviandoFoto] = useState(false);
+  const [fotoToast, setFotoToast] = useState<Toast>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
+
+  const iniciais =
+    (perfil.nome_completo || email)
+      .replace(/^Dr[a]?\.?\s*/i, "")
+      .trim()
+      .split(/\s+/)
+      .map((p) => p[0] ?? "")
+      .slice(0, 2)
+      .join("")
+      .toUpperCase() || "DR";
+
+  async function onSelecionarFoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setEnviandoFoto(true);
+    setFotoToast(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await uploadAvatarFoto(fd);
+      if ("error" in res) {
+        setFotoToast({ tipo: "erro", msg: res.error });
+      } else {
+        setAvatarUrl(res.url);
+        setFotoToast({ tipo: "ok", msg: "Foto atualizada." });
+        router.refresh(); // navbar do shell e cockpit refletem na hora
+      }
+    } catch {
+      setFotoToast({ tipo: "erro", msg: "Falha ao enviar a foto." });
+    } finally {
+      setEnviandoFoto(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
 
   function set<K extends keyof PerfilData>(k: K, v: PerfilData[K]) {
     setPerfil((p) => ({ ...p, [k]: v }));
@@ -112,22 +154,92 @@ export default function PerfilForm({
   }
 
   return (
-    <div className="min-h-screen bg-bg font-sans text-txt">
-      <header className="flex items-center justify-between border-b border-border bg-white px-6 py-4">
-        <div>
-          <h1 className="text-lg font-bold">Perfil do médico</h1>
-          <p className="text-xs text-txt-2">Área do médico · dados cadastrais e credenciais</p>
-        </div>
-        <Link
-          href="/cockpit"
-          className="rounded-full border border-border px-4 py-2 text-xs font-semibold text-txt-2 hover:bg-bg-3"
-        >
-          ← Voltar ao cockpit
-        </Link>
-      </header>
+    <main className="mx-auto max-w-4xl px-6 py-8">
+      <div className="mb-6">
+        <h1 className="text-xl font-bold">Perfil do médico</h1>
+        <p className="text-sm text-txt-2">Dados cadastrais e credenciais</p>
+      </div>
 
-      <main className="mx-auto max-w-3xl px-6 py-8">
-        <form onSubmit={handleSubmit} className="flex flex-col gap-8">
+      {/* Cabeçalho do perfil — foto grande sobre faixa de marca */}
+      <section className="mb-6 overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
+        <div className="h-28 bg-gradient-to-r from-[#123FBF] via-[#1E5AE8] to-[#2FA4F2]" />
+        <div className="px-6 pb-7 sm:px-8">
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={onSelecionarFoto}
+          />
+          <div className="relative -mt-14 w-fit">
+            {avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={avatarUrl}
+                alt="Foto de perfil"
+                className="h-32 w-32 rounded-full object-cover shadow-md ring-4 ring-white"
+              />
+            ) : (
+              <div className="grid h-32 w-32 place-items-center rounded-full bg-blue text-3xl font-bold text-white shadow-md ring-4 ring-white">
+                {iniciais}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              disabled={enviandoFoto}
+              aria-label={enviandoFoto ? "Enviando foto" : "Alterar foto"}
+              className="absolute bottom-1 right-1 grid h-10 w-10 place-items-center rounded-full bg-blue text-white ring-4 ring-white transition hover:bg-blue-dark disabled:cursor-wait disabled:opacity-70"
+            >
+              {enviandoFoto ? (
+                <span className="block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+              ) : (
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                  <circle cx="12" cy="13" r="4" />
+                </svg>
+              )}
+            </button>
+          </div>
+
+          <div className="mt-4">
+            <h2 className="text-2xl font-bold leading-tight text-txt">
+              {perfil.nome_completo || "Seu nome"}
+            </h2>
+            <p className="mt-1 text-sm font-medium text-txt-2">
+              {perfil.especialidade || "Médico(a)"}
+              {perfil.crm ? ` · CRM ${perfil.crm_estado} ${perfil.crm}` : ""}
+            </p>
+            <p className="mt-0.5 text-xs text-txt-3">{email}</p>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span className="text-xs text-txt-2">
+              Clique na câmera para {avatarUrl ? "trocar" : "adicionar"} a foto · JPG, PNG ou WebP · até 5 MB
+            </span>
+            {fotoToast && (
+              <span
+                className={`text-sm font-medium ${
+                  fotoToast.tipo === "ok" ? "text-green" : "text-red"
+                }`}
+              >
+                {fotoToast.msg}
+              </span>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <form onSubmit={handleSubmit} className="grid gap-6 lg:grid-cols-2">
             <Secao titulo="Dados profissionais">
               <Campo label="Nome completo">
                 <input
@@ -205,6 +317,7 @@ export default function PerfilForm({
               </Campo>
             </Secao>
 
+            <div className="lg:col-span-2">
             <Secao titulo="Credenciais de acesso">
               <Campo label="E-mail de login">
                 <input
@@ -227,8 +340,9 @@ export default function PerfilForm({
                 />
               </Campo>
             </Secao>
+            </div>
 
-            <div className="flex items-center gap-4">
+            <div className="lg:col-span-2 flex items-center gap-4">
               <button
                 type="submit"
                 disabled={salvando}
@@ -247,8 +361,7 @@ export default function PerfilForm({
               )}
             </div>
         </form>
-      </main>
-    </div>
+    </main>
   );
 }
 

@@ -3,6 +3,7 @@ import { getAuthUser } from "@/lib/auth/getAuthUser";
 import { createClient } from "@/lib/supabase/server";
 import { getConsultaAtiva } from "@/lib/consultas/hasConsultaPaga";
 import CheckoutForm from "@/components/checkout/CheckoutForm";
+import LogoutButton from "@/components/auth/LogoutButton";
 
 function maskCpf(cpf: string | null | undefined): string {
   if (!cpf) return "";
@@ -39,11 +40,14 @@ export default async function CheckoutPage() {
   const mpPublicKey = process.env.NEXT_PUBLIC_MP_PUBLIC_KEY_CARTAO ?? "";
 
   return (
-    <CheckoutForm
-      mpPublicKey={mpPublicKey}
-      patientName={patient?.full_name ?? user.email ?? ""}
-      patientEmail={patient?.email ?? user.email ?? ""}
-      patientCpf={maskCpf(patient?.cpf)}
-    />
+    <>
+      <LogoutButton />
+      <CheckoutForm
+        mpPublicKey={mpPublicKey}
+        patientName={patient?.full_name ?? user.email ?? ""}
+        patientEmail={patient?.email ?? user.email ?? ""}
+        patientCpf={maskCpf(patient?.cpf)}
+      />
+    </>
   );
 }

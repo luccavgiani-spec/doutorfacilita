@@ -2121,6 +2121,77 @@ body {
 }
 .auth-card--wide { max-width: 640px; }
 
+/* ─── Split de login (2 colunas: marca + formulário) ──────────────
+   auth-main--split centraliza o bloco na vertical (some o "esticão"
+   do card em altura cheia); modifier exclusivo do /login. */
+.auth-main--split { align-items: center; }
+
+.auth-split {
+  width: 100%;
+  max-width: 920px;
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  background: white;
+  border-radius: 24px;
+  overflow: hidden;
+  border: 1px solid var(--hborder);
+  box-shadow: 0 18px 50px rgba(11, 27, 58, 0.10);
+}
+
+.auth-split-brand {
+  background: linear-gradient(160deg, #123FBF 0%, #1E5AE8 55%, #2FA4F2 100%);
+  color: #fff;
+  padding: 48px 44px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.auth-split-badge { display: inline-flex; align-items: center; gap: 12px; }
+.auth-split-badge-mark {
+  width: 52px; height: 52px;
+  background: #fff; border-radius: 14px;
+  display: grid; place-items: center;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
+}
+.auth-split-wordmark { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
+.auth-split-title {
+  font-size: 30px; line-height: 1.14; font-weight: 700;
+  letter-spacing: -0.02em; margin: 12px 0 0;
+}
+.auth-split-text {
+  font-size: 14px; line-height: 1.6; margin: 0;
+  color: rgba(255, 255, 255, 0.82);
+  max-width: 30ch;
+}
+.auth-split-list {
+  list-style: none; margin: 10px 0 0; padding: 0;
+  display: grid; gap: 13px;
+}
+.auth-split-list li {
+  display: flex; align-items: center; gap: 11px;
+  font-size: 14px; font-weight: 500;
+}
+.auth-split-check {
+  flex: none;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.16);
+  display: grid; place-items: center;
+  font-size: 12px; font-weight: 700; color: #fff;
+}
+
+.auth-split-form {
+  padding: 48px 40px;
+  display: flex; flex-direction: column; justify-content: center;
+}
+
+@media (max-width: 860px) {
+  /* empilha: some o painel de marca (o header já traz o logo) e o
+     formulário ocupa a largura toda como um card único. */
+  .auth-split { grid-template-columns: 1fr; max-width: 460px; }
+  .auth-split-brand { display: none; }
+  .auth-split-form { padding: 36px 28px; }
+}
+
 .auth-eyebrow {
   font-size: 12px; color: var(--txt2); font-weight: 600;
   letter-spacing: 0.08em; text-transform: uppercase;

@@ -34,6 +34,11 @@ export default async function Page({
         .trim()
     : (user.email ?? "");
 
+  const doctorAvatarUrl =
+    typeof user.user_metadata?.avatar_url === "string"
+      ? user.user_metadata.avatar_url
+      : null;
+
   const { consultation } = await searchParams;
 
   // Fallback: sem ?consultation= na URL, resolve a consulta ativa
@@ -56,6 +61,7 @@ export default async function Page({
       consultationId={consultationId}
       doctorNome={nome}
       doctorSub={sub}
+      doctorAvatarUrl={doctorAvatarUrl}
     />
   );
 }
