@@ -37,6 +37,50 @@ function Check({ className = "text-[#10B981]" }: { className?: string }) {
   );
 }
 
+/* cadeado genérico (usado no selo de pagamento seguro) */
+function LockIcon() {
+  return (
+    <svg className="text-[#2FA4F2]" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="4" y="10" width="16" height="11" rx="2" /><path d="M8 10V7a4 4 0 018 0v3" />
+    </svg>
+  );
+}
+
+/* ──────────────────────── PARCEIROS OFICIAIS ────────────────────────
+   Selos discretos: Mevo (logo oficial no repo) + Mercado Pago.
+   OBS.: não há asset oficial do Mercado Pago no repositório, então o
+   nome usa um tratamento tipográfico sóbrio (wordmark). Para trocar por
+   um PNG oficial, basta adicionar o arquivo em /public/assets/ e
+   substituir o wordmark por um <img>.
+   ──────────────────────────────────────────────────────────────────── */
+function PartnerBadges({ className = "" }: { className?: string }) {
+  return (
+    <div className={`flex flex-wrap items-center gap-x-6 gap-y-3 ${className}`}>
+      <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#8B97AD]">
+        Parceiros oficiais
+      </span>
+
+      {/* Mevo — logo oficial (asset presente no repo) */}
+      <span className="inline-flex items-center gap-2 text-[12.5px] font-medium text-[#55647E]">
+        Receita digital via
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/assets/mevo-logo.png" alt="Mevo" className="h-[15px] w-auto" />
+      </span>
+
+      {/* Mercado Pago — wordmark tipográfico (sem asset oficial no repo) */}
+      <span className="inline-flex items-center gap-2 text-[12.5px] font-medium text-[#55647E]">
+        Pagamento seguro via
+        <span className="inline-flex items-center gap-1 rounded-md bg-[#F2F6FF] px-2 py-1 ring-1 ring-[#E6ECF8]">
+          <LockIcon />
+          <span className="text-[12.5px] font-bold tracking-tight text-[#123FBF]">
+            Mercado&nbsp;Pago
+          </span>
+        </span>
+      </span>
+    </div>
+  );
+}
+
 /* número animado das métricas */
 function CountUp({ to, prefix = "", suffix = "", decimals = 0 }: { to: number; prefix?: string; suffix?: string; decimals?: number }) {
   const ref = useRef<HTMLSpanElement>(null);
@@ -133,13 +177,6 @@ function Nav() {
 }
 
 /* ─────────────────────────── HERO ─────────────────────────── */
-
-/* fotos placeholder (randomuser.me) — trocar por fotos licenciadas antes do go-live */
-const PHOTOS = {
-  juliana: "https://randomuser.me/api/portraits/women/44.jpg",
-  carlos: "https://randomuser.me/api/portraits/men/54.jpg",
-  fernanda: "https://randomuser.me/api/portraits/women/26.jpg",
-};
 
 function Hero() {
   return (
@@ -428,6 +465,9 @@ function Pricing() {
               </span>
             </div>
           </div>
+
+          {/* selos discretos de parceiros oficiais */}
+          <PartnerBadges className="relative mt-8 border-t border-[#E6ECF8] pt-6" />
         </motion.div>
       </div>
     </section>
@@ -521,31 +561,247 @@ function Benefits() {
   );
 }
 
-/* ──────────────────────── DEPOIMENTOS ──────────────────────── */
+/* ──────────────────────── DEPOIMENTOS ────────────────────────
+   ⚠️ Depoimentos de DEMONSTRAÇÃO — conteúdo 100% fictício e original,
+   criado como placeholder da LP do Plantão Digital. Substituir por
+   depoimentos reais (com consentimento dos pacientes) antes do
+   lançamento. Fotos são retratos de banco (placeholder), NÃO de clientes
+   reais — ver PHOTO_BY_NAME e o aviso lá. Layout inspirado em marquee de
+   colunas (inspiração de alto nível, sem código/texto de terceiros).
+   ──────────────────────────────────────────────────────────────── */
+type Testimonial = {
+  quote: string;
+  name: string;
+  info: string;
+  rating: number; // nota plausível de demonstração: 4.5 – 5.0
+  color: string; // cor do avatar de iniciais
+};
+
+const TESTIMONIALS: Testimonial[] = [
+  {
+    quote:
+      "Acordei com dor de garganta e febre num sábado. Entrei na fila e em poucos minutos já estava com a médica. Saí com a receita no celular.",
+    name: "Marina T.",
+    info: "Paciente · Recife/PE",
+    rating: 5,
+    color: "#1E5AE8",
+  },
+  {
+    quote:
+      "Precisava de atestado e não queria perder o dia no posto. Resolvi tudo no intervalo do almoço, por R$ 39,90.",
+    name: "Rafael Andrade",
+    info: "Paciente · Campinas/SP",
+    rating: 4.5,
+    color: "#123FBF",
+  },
+  {
+    quote:
+      "Achei que por esse preço seria corrido, mas o médico me ouviu com calma e explicou o tratamento direitinho.",
+    name: "Cláudia Nogueira",
+    info: "Paciente · Salvador/BA",
+    rating: 5,
+    color: "#2FA4F2",
+  },
+  {
+    quote:
+      "Meu filho passou mal de madrugada. Consegui uma orientação médica na hora, sem sair de casa. Muito alívio.",
+    name: "Patrícia L.",
+    info: "Paciente · Curitiba/PR",
+    rating: 5,
+    color: "#0B1B3A",
+  },
+  {
+    quote:
+      "A receita digital foi aceita na farmácia sem nenhum problema. Simples do começo ao fim.",
+    name: "Diego Farias",
+    info: "Paciente · Fortaleza/CE",
+    rating: 4.5,
+    color: "#1748C9",
+  },
+  {
+    quote:
+      "Viajo muito a trabalho e nunca tenho tempo pra marcar consulta. Aqui fui atendido no mesmo dia, pelo celular.",
+    name: "Henrique B.",
+    info: "Paciente · Porto Alegre/RS",
+    rating: 5,
+    color: "#1E5AE8",
+  },
+  {
+    quote:
+      "O tempo de espera foi bem menor do que eu imaginava. Em cerca de 10 minutos já estava conversando com o médico.",
+    name: "Aline Souza",
+    info: "Paciente · Belém/PA",
+    rating: 5,
+    color: "#2FA4F2",
+  },
+  {
+    quote:
+      "Pagar só quando preciso, sem mensalidade, faz toda diferença pro meu orçamento. Recomendo pra família toda.",
+    name: "Vinícius M.",
+    info: "Paciente · Goiânia/GO",
+    rating: 4.5,
+    color: "#123FBF",
+  },
+];
+
+/* Avatares de perfil GENÉRICOS — ilustração flat (não são fotos de pessoas
+   reais). Estilo determinístico pelo nome → estável no loop do marquee. */
+type AvatarStyle = {
+  bg: string;
+  skin: string;
+  hair: string;
+  clothes: string;
+  kind: "short" | "round" | "long" | "bun";
+};
+
+const AVATAR_STYLES: AvatarStyle[] = [
+  { bg: "#DCE9FF", skin: "#F3CBA6", hair: "#2B2320", clothes: "#3B5BA5", kind: "short" },
+  { bg: "#ECE6FF", skin: "#C68A5E", hair: "#12100E", clothes: "#8C5B9E", kind: "long" },
+  { bg: "#D8F1E8", skin: "#DDA579", hair: "#5C3A22", clothes: "#2F8F6B", kind: "bun" },
+  { bg: "#FFE8DA", skin: "#F3CBA6", hair: "#7A5230", clothes: "#C46A6A", kind: "long" },
+  { bg: "#E2F0FF", skin: "#9C6B45", hair: "#12100E", clothes: "#4A6FA5", kind: "short" },
+  { bg: "#FCE1EC", skin: "#DDA579", hair: "#2B2320", clothes: "#5B6B8C", kind: "bun" },
+  { bg: "#E8ECF5", skin: "#C68A5E", hair: "#5C3A22", clothes: "#3B5BA5", kind: "round" },
+  { bg: "#DDEEFF", skin: "#7A4E30", hair: "#12100E", clothes: "#2F8F6B", kind: "long" },
+];
+
+function avatarStyle(name: string): AvatarStyle {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h + name.charCodeAt(i)) % 997;
+  return AVATAR_STYLES[h % AVATAR_STYLES.length];
+}
+
+function PersonAvatar({ name }: { name: string }) {
+  const s = avatarStyle(name);
+  const hairR = s.kind === "short" ? 12.4 : 13;
+  const hairCy = s.kind === "short" ? 26.5 : 27;
+  return (
+    <svg viewBox="0 0 64 64" className="h-full w-full" aria-hidden>
+      <rect width="64" height="64" fill={s.bg} />
+      {s.kind === "long" && (
+        <g fill={s.hair}>
+          <rect x="17.5" y="26" width="6" height="18" rx="3" />
+          <rect x="40.5" y="26" width="6" height="18" rx="3" />
+        </g>
+      )}
+      <path d="M8 64C8 47 20 45 32 45s24 2 24 19Z" fill={s.clothes} />
+      <circle cx="32" cy={hairCy} r={hairR} fill={s.hair} />
+      <circle cx="32" cy="31" r="11.6" fill={s.skin} />
+      {s.kind === "bun" && <circle cx="32" cy="12.5" r="4.5" fill={s.hair} />}
+    </svg>
+  );
+}
+
+/* Fotos de perfil (placeholder). São retratos de banco (randomuser.me), NÃO de
+   clientes reais desta plataforma. ⚠️ ANTES DO LANÇAMENTO, substituir por fotos
+   e depoimentos de clientes reais que autorizaram o uso — publicar depoimento
+   fictício com foto de pessoa não relacionada engana o paciente. Se a imagem
+   não carregar (offline/CSP), cai no avatar ilustrado <PersonAvatar />. */
+const PHOTO_BY_NAME: Record<string, string> = {
+  "Marina T.": "https://randomuser.me/api/portraits/women/68.jpg",
+  "Rafael Andrade": "https://randomuser.me/api/portraits/men/32.jpg",
+  "Cláudia Nogueira": "https://randomuser.me/api/portraits/women/65.jpg",
+  "Patrícia L.": "https://randomuser.me/api/portraits/women/12.jpg",
+  "Diego Farias": "https://randomuser.me/api/portraits/men/75.jpg",
+  "Henrique B.": "https://randomuser.me/api/portraits/men/51.jpg",
+  "Aline Souza": "https://randomuser.me/api/portraits/women/90.jpg",
+  "Vinícius M.": "https://randomuser.me/api/portraits/men/44.jpg",
+};
+
+function AvatarPhoto({ name }: { name: string }) {
+  const [failed, setFailed] = useState(false);
+  const photo = PHOTO_BY_NAME[name];
+  return (
+    <span className="h-11 w-11 shrink-0 overflow-hidden rounded-full ring-1 ring-[#E6ECF8]">
+      {photo && !failed ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={photo}
+          alt=""
+          loading="lazy"
+          onError={() => setFailed(true)}
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        <PersonAvatar name={name} />
+      )}
+    </span>
+  );
+}
+
+/* nota em estrelas com suporte a meia-estrela (via overlay recortado) */
+function Stars({ value }: { value: number }) {
+  const pct = Math.max(0, Math.min(100, (value / 5) * 100));
+  const Row = ({ className }: { className: string }) => (
+    <div className={`flex gap-0.5 ${className}`}>
+      {Array.from({ length: 5 }).map((_, i) => (
+        <svg key={i} width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.3 5.9 20.6l1.4-6.8L2.2 9.1l6.9-.8L12 2z" />
+        </svg>
+      ))}
+    </div>
+  );
+  return (
+    <div className="relative inline-flex" role="img" aria-label={`${value.toFixed(1)} de 5`}>
+      <Row className="text-[#E2E8F5]" />
+      <div className="absolute inset-0 overflow-hidden" style={{ width: `${pct}%` }}>
+        <Row className="text-[#F59E0B]" />
+      </div>
+    </div>
+  );
+}
+
+function TestimonialCard({ t }: { t: Testimonial }) {
+  return (
+    <figure className="rounded-3xl border border-[#E6ECF8] bg-white p-6 shadow-[0_2px_8px_rgba(11,27,58,0.04)]">
+      <div className="flex items-center justify-between">
+        <Stars value={t.rating} />
+        <span className="text-[12px] font-bold text-[#8B97AD]">{t.rating.toFixed(1)}</span>
+      </div>
+      <blockquote className="mt-4 text-[14.5px] leading-relaxed text-[#3B4A66]">
+        “{t.quote}”
+      </blockquote>
+      <figcaption className="mt-5 flex items-center gap-3">
+        <AvatarPhoto name={t.name} />
+        <span>
+          <span className="block text-[14px] font-bold text-[#0B1B3A]">{t.name}</span>
+          <span className="block text-[12.5px] text-[#8B97AD]">{t.info}</span>
+        </span>
+      </figcaption>
+    </figure>
+  );
+}
+
+/* coluna com rolagem vertical infinita (marquee) — duplica os itens e
+   desloca metade da altura pra criar loop contínuo e sem emenda */
+function TestimonialColumn({
+  items,
+  duration,
+  className = "",
+}: {
+  items: Testimonial[];
+  duration: number;
+  className?: string;
+}) {
+  return (
+    <div className={className}>
+      <motion.div
+        animate={{ y: ["0%", "-50%"] }}
+        transition={{ duration, ease: "linear", repeat: Infinity }}
+        className="flex flex-col gap-6"
+      >
+        {[...items, ...items].map((t, i) => (
+          <TestimonialCard key={i} t={t} />
+        ))}
+      </motion.div>
+    </div>
+  );
+}
+
 function Testimonials() {
-  const items = [
-    {
-      quote:
-        "Meu filho acordou com febre num domingo. Em 12 minutos eu já estava falando com a médica e saí com a receita no celular.",
-      name: "Juliana R.",
-      info: "São Paulo · SP",
-      photo: PHOTOS.juliana,
-    },
-    {
-      quote:
-        "Precisava de atestado e não podia faltar mais um dia de trabalho pra ir ao posto. Resolvi tudo no intervalo do almoço.",
-      name: "Carlos M.",
-      info: "Belo Horizonte · MG",
-      photo: PHOTOS.carlos,
-    },
-    {
-      quote:
-        "Achei que por R$ 39,90 seria um atendimento corrido. A médica me ouviu com calma e explicou tudo. Virou meu plano B de saúde.",
-      name: "Fernanda T.",
-      info: "Curitiba · PR",
-      photo: PHOTOS.fernanda,
-    },
-  ];
+  const col1 = TESTIMONIALS.slice(0, 3);
+  const col2 = TESTIMONIALS.slice(3, 6);
+  const col3 = TESTIMONIALS.slice(6, 8);
   return (
     <section className="bg-white py-24">
       <div className="mx-auto max-w-[1120px] px-5">
@@ -556,53 +812,30 @@ function Testimonials() {
           viewport={{ once: true, margin: "-80px" }}
           className="mx-auto max-w-[560px] text-center"
         >
-          <motion.span variants={fadeUp} className="text-[13px] font-bold uppercase tracking-[0.16em] text-[#1E5AE8]">
-            Depoimentos
+          <motion.span variants={fadeUp} className="inline-flex items-center gap-2 rounded-full border border-[#D6E3FB] bg-[#F2F6FF] px-4 py-1.5 text-[12.5px] font-bold uppercase tracking-[0.14em] text-[#1E5AE8]">
+            <Check className="text-[#1E5AE8]" /> Depoimentos
           </motion.span>
-          <motion.h2 variants={fadeUp} className="mt-3 text-[32px] font-bold leading-tight tracking-[-0.02em] text-[#0B1B3A] sm:text-[40px]">
+          <motion.h2 variants={fadeUp} className="mt-4 text-[32px] font-bold leading-tight tracking-[-0.02em] text-[#0B1B3A] sm:text-[40px]">
             Quem usou,{" "}
             <span className="font-serif italic text-[#1E5AE8]">recomenda</span>
           </motion.h2>
+          <motion.p variants={fadeUp} className="mt-4 text-[15.5px] leading-relaxed text-[#55647E]">
+            Histórias de quem resolveu a saúde do dia a dia em minutos, sem sair de casa.
+          </motion.p>
         </motion.div>
 
         <motion.div
-          variants={stagger}
-          initial="hidden"
-          whileInView="show"
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
           viewport={{ once: true, margin: "-80px" }}
-          className="mt-14 grid gap-6 md:grid-cols-3"
+          transition={{ duration: 0.7, ease: EASE }}
+          className="relative mt-14 h-[560px] overflow-hidden [mask-image:linear-gradient(to_bottom,transparent,black_12%,black_88%,transparent)]"
         >
-          {items.map((t) => (
-            <motion.figure
-              key={t.name}
-              variants={fadeUp}
-              whileHover={{ y: -6 }}
-              className="flex flex-col rounded-3xl border border-[#E6ECF8] bg-white p-8 shadow-[0_2px_8px_rgba(11,27,58,0.04)] transition-shadow hover:shadow-[0_20px_44px_-12px_rgba(11,27,58,0.14)]"
-            >
-              <div className="flex gap-1 text-[#F59E0B]">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <svg key={i} width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.3 5.9 20.6l1.4-6.8L2.2 9.1l6.9-.8L12 2z" />
-                  </svg>
-                ))}
-              </div>
-              <blockquote className="mt-5 flex-1 text-[15px] leading-relaxed text-[#3B4A66]">
-                “{t.quote}”
-              </blockquote>
-              <figcaption className="mt-6 flex items-center gap-3">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={t.photo}
-                  alt={t.name}
-                  className="h-11 w-11 rounded-full object-cover ring-2 ring-[#E6ECF8]"
-                />
-                <span>
-                  <span className="block text-[14px] font-bold text-[#0B1B3A]">{t.name}</span>
-                  <span className="block text-[12.5px] text-[#8B97AD]">{t.info}</span>
-                </span>
-              </figcaption>
-            </motion.figure>
-          ))}
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <TestimonialColumn items={col1} duration={30} />
+            <TestimonialColumn items={col2} duration={38} className="hidden md:block" />
+            <TestimonialColumn items={col3} duration={34} className="hidden lg:block" />
+          </div>
         </motion.div>
       </div>
     </section>
@@ -707,6 +940,17 @@ function Faq() {
               </motion.div>
             );
           })}
+        </motion.div>
+
+        {/* selo discreto de parceiros (reforça o pagamento seguro citado acima) */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-40px" }}
+          transition={{ duration: 0.6, ease: EASE }}
+          className="mt-10 flex justify-center"
+        >
+          <PartnerBadges className="justify-center rounded-2xl border border-[#E6ECF8] bg-white px-6 py-4" />
         </motion.div>
       </div>
     </section>

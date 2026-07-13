@@ -36,11 +36,17 @@ export default async function Page() {
       }
     : PERFIL_VAZIO;
 
+  const avatarInicial =
+    typeof user.user_metadata?.avatar_url === "string"
+      ? user.user_metadata.avatar_url
+      : null;
+
   return (
     <PerfilForm
       userId={user.id}
       email={user.email ?? ""}
       inicial={inicial}
+      avatarInicial={avatarInicial}
     />
   );
 }

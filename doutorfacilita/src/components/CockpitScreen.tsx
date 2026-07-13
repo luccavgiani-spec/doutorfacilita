@@ -19,10 +19,12 @@ export default function CockpitScreen({
   consultationId,
   doctorNome,
   doctorSub,
+  doctorAvatarUrl,
 }: {
   consultationId?: string;
   doctorNome: string;
   doctorSub: string;
+  doctorAvatarUrl?: string | null;
 }) {
   const [activeCall, setActiveCall] = useState<ActiveCallPayload | null>(null);
   const [finishing, setFinishing] = useState(false);
@@ -212,7 +214,7 @@ export default function CockpitScreen({
             Aceitar próximos
             <div className="doc-toggle-switch"></div>
           </div>
-          <DoctorMenu nome={doctorNome} sub={doctorSub} />
+          <DoctorMenu nome={doctorNome} sub={doctorSub} avatarUrl={doctorAvatarUrl ?? null} />
         </div>
       </div>
 

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { Logo } from "@/components/Logo";
 
 /** Shell do /admin: sidebar fixa (5 seções) + topbar. Reusa tokens CSS. */
 
@@ -16,10 +17,8 @@ const NAV = [
 ];
 
 export default function AdminShell({
-  userEmail,
   children,
 }: {
-  userEmail: string;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -36,9 +35,14 @@ export default function AdminShell({
   return (
     <div className="flex min-h-screen bg-bg font-sans text-txt">
       <aside className="flex w-60 shrink-0 flex-col border-r border-border bg-white">
+        <div className="h-1 bg-gradient-to-r from-[#123FBF] via-[#1E5AE8] to-[#2FA4F2]" />
         <div className="border-b border-border px-5 py-4">
-          <p className="text-sm font-bold">Plantão Digital</p>
-          <p className="text-xs text-txt-2">Painel administrativo</p>
+          <Link href="/admin" aria-label="Plantão Digital">
+            <Logo size={26} />
+          </Link>
+          <p className="mt-2 text-[11px] font-semibold uppercase tracking-wide text-txt-3">
+            Painel administrativo
+          </p>
         </div>
         <nav className="flex flex-1 flex-col gap-1 p-3">
           {NAV.map((item) => {
@@ -62,34 +66,24 @@ export default function AdminShell({
             );
           })}
         </nav>
-        <div className="border-t border-border p-3">
+        <div className="flex flex-col gap-2 border-t border-border p-3">
           <Link
             href="/cockpit"
             className="block rounded-lg px-3 py-2 text-xs font-semibold text-txt-2 hover:bg-bg-3"
           >
             ← Voltar ao cockpit
           </Link>
+          <button
+            type="button"
+            onClick={signOut}
+            className="rounded-lg bg-blue px-3 py-2 text-sm font-semibold text-white hover:bg-blue-d"
+          >
+            Sair
+          </button>
         </div>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between border-b border-border bg-white px-6 py-3">
-          <span className="text-xs font-semibold uppercase tracking-wide text-txt-3">
-            Admin
-          </span>
-          <div className="flex items-center gap-4">
-            <span className="text-xs text-txt-2">{userEmail}</span>
-            <button
-              type="button"
-              onClick={signOut}
-              className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-txt-2 hover:bg-bg-3"
-            >
-              Sair
-            </button>
-          </div>
-        </header>
-        <main className="min-w-0 flex-1 overflow-x-auto p-6">{children}</main>
-      </div>
+      <main className="min-w-0 flex-1 overflow-x-auto p-6">{children}</main>
     </div>
   );
 }

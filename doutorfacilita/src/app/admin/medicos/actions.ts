@@ -268,3 +268,71 @@ export async function revokeRole(
   revalidatePath("/admin/medicos");
   return { ok: true };
 }
+
+/**
+ * Edita o perfil de um médico (dados cadastrais em public.doctors).
+ * Usa service-role (admin ignora RLS). Não altera credenciais de login
+ * (email/senha do Auth) — só o registro do médico. Auditado.
+ */
+type UpdateDoctorInput = {
+  full_name?: string;
+  email?: string;
+  cpf?: string;
+  council?: string;
+  council_state?: string;
+  council_number?: string;
+  primary_specialty?: string;
+  phone?: string;
+};
+
+export async function adminUpdateDoctor(
+  doctorId: string,
+  input: UpdateDoctorInput,
+): Promise<Result> {
+  if (!doctorId) return { ok: false, error: "doctor_id ausente" };
+
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch (err) {
+    return {
+      ok: false,
+      error: "SUPABASE_SERVICE_ROLE_KEY ausente: " +
+        (err instanceof Error ? err.message : String(err)),
+    };
+  }
+
+  const update: Record<string, unknown> = {};
+  if (input.full_name !== undefined) {
+    const nome = input.full_name.trim();
+    if (!nome) return { ok: false, error: "Nome obrigatório." };
+    update.full_name = nome;
+  }
+  if (input.email !== undefined) update.email = input.email.trim().toLowerCase();
+  // Edição de admin = override confiável (igual adminUpdatePatient): normaliza
+  // o CPF mas não bloqueia — não trava a edição por um CPF legado inválido.
+  if (input.cpf !== undefined) update.cpf = input.cpf.replace(/\D/g, "");
+  if (input.council !== undefined) update.council = input.council.trim() || "CRM";
+  if (input.council_state !== undefined) update.council_state = input.council_state.trim();
+  if (input.council_number !== undefined) update.council_number = input.council_number.trim();
+  if (input.primary_specialty !== undefined) {
+    const esp = input.primary_specialty.trim();
+    update.primary_specialty = esp;
+    update.specialties = esp ? [esp] : [];
+  }
+  if (input.phone !== undefined) update.phone = input.phone.replace(/\D/g, "");
+  update.updated_at = new Date().toISOString();
+
+  const { error } = await admin.from("doctors").update(update).eq("id", doctorId);
+  if (error) return { ok: false, error: error.message };
+
+  await logAdminAction({
+    action: "update",
+    entity_type: "doctor",
+    entity_id: doctorId,
+    metadata: { fields: Object.keys(update).filter((k) => k !== "updated_at") },
+  });
+
+  revalidatePath("/admin/medicos");
+  return { ok: true };
+}

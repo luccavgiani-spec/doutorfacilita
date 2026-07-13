@@ -26,7 +26,5 @@ export default async function AdminLayout({
 
   if (rpcError || !isAdmin) redirect("/cockpit");
 
-  return (
-    <AdminShell userEmail={user.email ?? ""}>{children}</AdminShell>
-  );
+  return <AdminShell>{children}</AdminShell>;
 }

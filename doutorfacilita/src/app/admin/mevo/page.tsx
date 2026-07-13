@@ -10,10 +10,10 @@ const fmt = (d: string | null) =>
 const DEFAULT_CFG: MevoConfig = {
   enabled: false,
   ambiente: "homologacao",
-  subparceiro: "",
-  logo_url: "",
-  cor_primaria: "#0066CC",
-  cor_secundaria: "#00A3FF",
+  subparceiro: "PLANTAO_DIGITAL",
+  logo_url: "https://www.meuplantaodigital.com/assets/logo-plantao-digital.png",
+  cor_primaria: "#1E5AE8", // azul primário Plantão Digital
+  cor_secundaria: "#2FA4F2", // azul claro Plantão Digital
   certificado_obrigatorio: true,
   permitir_impressao: false,
   exibir_email: false,
