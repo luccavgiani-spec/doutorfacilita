@@ -62,6 +62,7 @@ const config: Config = {
       // ────────────────────────────────────────────────────────
       fontFamily: {
         sans: ["var(--font-dm-sans)", "Helvetica Neue", "system-ui", "sans-serif"],
+        serif: ["Instrument Serif", "Georgia", "serif"],
         accent: ["var(--font-caveat)", "cursive"],
       },
       // ────────────────────────────────────────────────────────
