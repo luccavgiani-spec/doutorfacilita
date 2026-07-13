@@ -12,7 +12,7 @@ import {
   lgpdTermsHash,
 } from "@/lib/legal/terms";
 
-const VALOR_CENTAVOS_AVULSA = 5900;
+const VALOR_CENTAVOS_AVULSA = 3990;
 
 /**
  * Override "Redirecionar para Prontia" — integration_configs id='prontia_redirect'.

@@ -15,7 +15,7 @@ import {
   YAxis,
 } from "recharts";
 
-const tick = { fontSize: 11, fill: "#5f6368" } as const;
+const tick = { fontSize: 11, fill: "#55647E" } as const;
 const tooltipStyle = {
   borderRadius: 10,
   border: "1px solid rgba(0,0,0,0.08)",
@@ -42,14 +42,14 @@ export function RevenueTimeChart({
         <Tooltip
           contentStyle={tooltipStyle}
           formatter={(v) => [fmtBrl(Number(v)), "Receita"]}
-          labelStyle={{ fontSize: 11, color: "#5f6368" }}
+          labelStyle={{ fontSize: 11, color: "#55647E" }}
         />
         <Line
           type="monotone"
           dataKey="receita"
-          stroke="#34A853"
+          stroke="#10B981"
           strokeWidth={2.5}
-          dot={{ r: 3, fill: "#34A853" }}
+          dot={{ r: 3, fill: "#10B981" }}
           activeDot={{ r: 5 }}
         />
       </LineChart>
@@ -60,7 +60,7 @@ export function RevenueTimeChart({
 // ─── Atendimentos por dia (area) ─────────────────────────────
 export function AppointmentsTimeChart({
   data,
-  color = "#4285F4",
+  color = "#1E5AE8",
 }: {
   data: { dia: string; total: number }[];
   color?: string;
@@ -102,8 +102,8 @@ export function NewPatientsChart({
       <AreaChart data={data} margin={{ left: 0, right: 10 }}>
         <defs>
           <linearGradient id="patGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#34A853" stopOpacity={0.35} />
-            <stop offset="100%" stopColor="#34A853" stopOpacity={0} />
+            <stop offset="0%" stopColor="#10B981" stopOpacity={0.35} />
+            <stop offset="100%" stopColor="#10B981" stopOpacity={0} />
           </linearGradient>
         </defs>
         <CartesianGrid strokeDasharray="3 3" stroke="#eef0f3" />
@@ -113,7 +113,7 @@ export function NewPatientsChart({
         <Area
           type="monotone"
           dataKey="novos"
-          stroke="#34A853"
+          stroke="#10B981"
           strokeWidth={2}
           fillOpacity={1}
           fill="url(#patGrad)"
@@ -139,19 +139,19 @@ export function StatusDistributionChart({
         <Bar dataKey="total" radius={[0, 6, 6, 0]}>
           {data.map((d, i) => {
             const colorByStatus: Record<string, string> = {
-              completed: "#34A853",
-              in_progress: "#4285F4",
-              in_queue: "#4285F4",
-              paid: "#1a73e8",
-              created: "#9aa0a6",
-              cancelled: "#EA4335",
-              refunded: "#EA4335",
-              no_show: "#FBBC04",
+              completed: "#10B981",
+              in_progress: "#1E5AE8",
+              in_queue: "#1E5AE8",
+              paid: "#123FBF",
+              created: "#8B97AD",
+              cancelled: "#EF4444",
+              refunded: "#EF4444",
+              no_show: "#F59E0B",
             };
             return (
               <Cell
                 key={i}
-                fill={colorByStatus[d.status] ?? "#9aa0a6"}
+                fill={colorByStatus[d.status] ?? "#8B97AD"}
               />
             );
           })}

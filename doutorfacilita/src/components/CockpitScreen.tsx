@@ -8,6 +8,7 @@ import DoctorCallEmbedded from "@/components/cockpit/DoctorCallEmbedded";
 import ChartPanel, { type ChartPanelHandle } from "@/components/cockpit/ChartPanel";
 import type { ActiveCallPayload } from "@/components/cockpit/CallNextButton";
 import { createClient } from "@/lib/supabase/client";
+import { Logo } from "@/components/Logo";
 
 /**
  * Cockpit do médico (desktop). Vira client porque mantém o estado da chamada
@@ -195,9 +196,9 @@ export default function CockpitScreen({
 
       <div className="doc-top">
         <div className="doc-top-left">
-          <div className="logo-no">
-            <span className="dots"><span></span><span></span><span></span><span></span></span>
-            <span className="no-word">nó</span> telemed <span style={{color:'var(--txt2)', fontWeight:'400', fontSize:'12px', marginLeft:'6px'}}>painel médico</span>
+          <div style={{ display: "flex", alignItems: "center" }}>
+            <Logo size={28} />
+            <span style={{color:'var(--txt2)', fontWeight:'400', fontSize:'12px', marginLeft:'6px'}}>painel médico</span>
           </div>
           <div className="doc-status-pill"><span className="sd"></span>Disponível</div>
           <div className="doc-top-stats">

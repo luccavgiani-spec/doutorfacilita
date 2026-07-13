@@ -32,7 +32,7 @@ export function FunnelChart({
         <Tooltip contentStyle={tooltipStyle} />
         <Bar dataKey="total" radius={[6, 6, 0, 0]}>
           {data.map((_, i) => (
-            <Cell key={i} fill={`hsl(217, 89%, ${62 - i * 7}%)`} />
+            <Cell key={i} fill={`hsl(222, 82%, ${62 - i * 7}%)`} />
           ))}
         </Bar>
       </BarChart>
@@ -65,7 +65,7 @@ export function DoctorRevenueChart({
             "Receita",
           ]}
         />
-        <Bar dataKey="receita" fill="#34A853" radius={[0, 6, 6, 0]} />
+        <Bar dataKey="receita" fill="#10B981" radius={[0, 6, 6, 0]} />
       </BarChart>
     </ResponsiveContainer>
   );

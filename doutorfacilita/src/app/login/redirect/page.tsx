@@ -49,7 +49,7 @@ export default async function LoginRedirectPage() {
       </p>
       <a
         href="/login"
-        style={{ color: "#4285F4", fontSize: 14, fontWeight: 600 }}
+        style={{ color: "#1E5AE8", fontSize: 14, fontWeight: 600 }}
       >
         Voltar ao login
       </a>

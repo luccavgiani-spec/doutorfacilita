@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Logo } from "@/components/Logo";
 
 import { prepararConsulta } from "@/app/checkout/actions";
 import {
@@ -280,9 +281,8 @@ export default function CheckoutForm({
     <div className="auth-shell">
       <header className="auth-top">
         <div className="auth-top-inner">
-          <Link href="/" className="logo-no" style={{ textDecoration: "none" }}>
-            <span className="dots"><span></span><span></span><span></span><span></span></span>
-            <span className="no-word">nó</span> telemed
+          <Link href="/" style={{ textDecoration: "none" }}>
+            <Logo size={30} />
           </Link>
           <div className="auth-top-link"><b>{patientName}</b></div>
         </div>

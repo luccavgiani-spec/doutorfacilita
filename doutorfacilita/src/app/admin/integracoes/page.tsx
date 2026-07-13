@@ -109,7 +109,7 @@ export default async function IntegracoesPage({
           </p>
         </header>
         <ProntiaDashboard
-          valorCobradoCents={prontiaConfig.valor_cobrado_cents ?? 5900}
+          valorCobradoCents={prontiaConfig.valor_cobrado_cents ?? 3990}
           valorPagoProntiaCents={prontiaConfig.valor_pago_prontia_cents ?? 4000}
           encaminhamentos={encaminhamentos}
         />

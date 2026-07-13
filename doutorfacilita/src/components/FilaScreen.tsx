@@ -1,6 +1,7 @@
 import { JoinConsultButton } from "@/components/fila/JoinConsultButton";
 import LogoutButton from "@/components/auth/LogoutButton";
 import { initials } from "@/lib/format/initials";
+import { Logo } from "@/components/Logo";
 
 /**
  * Tela Fila — Fila de espera do paciente (rota /fila)
@@ -34,9 +35,8 @@ export default function FilaScreen({
               <div className="bar4"><span></span><span></span><span></span><span></span></div>
     
               <div className="fila-m-top">
-                <div className="logo-no">
-                  <span className="dots"><span></span><span></span><span></span><span></span></span>
-                  <span className="no-word">nó</span>
+                <div>
+                  <Logo size={26} />
                 </div>
                 <div className="fila-m-user">
                   <div className="fila-m-user-av">{initials(nome)}</div>

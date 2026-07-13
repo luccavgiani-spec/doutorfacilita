@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { Logo } from "@/components/Logo";
 import { getAuthUser } from "@/lib/auth/getAuthUser";
 import { createClient } from "@/lib/supabase/server";
 
@@ -60,11 +61,8 @@ export default async function PosConsultaPage() {
     <div className="auth-shell">
       <header className="auth-top">
         <div className="auth-top-inner">
-          <Link href="/" className="logo-no" style={{ textDecoration: "none" }}>
-            <span className="dots">
-              <span></span><span></span><span></span><span></span>
-            </span>
-            <span className="no-word">nó</span> telemed
+          <Link href="/" style={{ textDecoration: "none" }}>
+            <Logo size={30} />
           </Link>
           <Link href="/fila" className="auth-top-link">
             Voltar à <b>área do paciente</b>

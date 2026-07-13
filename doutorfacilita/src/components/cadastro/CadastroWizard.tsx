@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { Logo } from "@/components/Logo";
 import { useRouter } from "next/navigation";
 import { useForm, Controller, type FieldPath } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -218,11 +219,8 @@ export default function CadastroWizard() {
       <div className="auth-shell">
         <header className="auth-top">
           <div className="auth-top-inner">
-            <Link href="/" className="logo-no" style={{ textDecoration: "none" }}>
-              <span className="dots">
-                <span></span><span></span><span></span><span></span>
-              </span>
-              <span className="no-word">nó</span> telemed
+            <Link href="/" style={{ textDecoration: "none" }}>
+              <Logo size={30} />
             </Link>
             <Link href="/login" className="auth-top-link">
               Voltar para o <b>login</b>
@@ -260,11 +258,8 @@ export default function CadastroWizard() {
     <div className="auth-shell">
       <header className="auth-top">
         <div className="auth-top-inner">
-          <Link href="/" className="logo-no" style={{ textDecoration: "none" }}>
-            <span className="dots">
-              <span></span><span></span><span></span><span></span>
-            </span>
-            <span className="no-word">nó</span> telemed
+          <Link href="/" style={{ textDecoration: "none" }}>
+            <Logo size={30} />
           </Link>
           <Link href="/login" className="auth-top-link">
             Já tem conta? <b>Entrar</b>

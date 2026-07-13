@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getAuthUser } from "@/lib/auth/getAuthUser";
 
-const VALOR_CENTAVOS = 5900;
+const VALOR_CENTAVOS = 3990;
 const SERVICE_CODE = "AVULSA";
 const SERVICE_NAME = "Consulta avulsa";
 
