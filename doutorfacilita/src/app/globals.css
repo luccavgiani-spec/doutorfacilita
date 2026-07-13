@@ -3,38 +3,38 @@
 @tailwind utilities;
 
 /* ═══════════════════════════════════════════════════════════════
-   DESIGN TOKENS — Plantão Digital (nó telemed)
-   Paleta Google + DM Sans + Caveat
+   DESIGN TOKENS — Plantão Digital
+   Paleta da marca + DM Sans + Instrument Serif + Caveat
    ═══════════════════════════════════════════════════════════════ */
 
 :root {
-  /* Cores primárias (paleta Google) */
-  --blue: #4285F4;
-  --red: #EA4335;
-  --yellow: #FBBC04;
-  --green: #34A853;
-  --blue-l: #e8f0fe;
-  --red-l: #fce8e6;
-  --yellow-l: #fef9e3;
-  --green-l: #e6f4ea;
-  --blue-d: #1a73e8;
-  --green-d: #2d8a45;
+  /* Marca (Plantão Digital) */
+  --blue: #1E5AE8;
+  --red: #EF4444;
+  --yellow: #F59E0B;
+  --green: #10B981;
+  --blue-l: #E8F0FF;
+  --red-l: #FEE2E2;
+  --yellow-l: #FEF3C7;
+  --green-l: #ECFDF5;
+  --blue-d: #123FBF;
+  --green-d: #0E9F6E;
 
   /* Neutros */
-  --dark: #1a1a1a;
-  --mid: #5f6368;
+  --dark: #0B1B3A;
+  --mid: #55647E;
   --light: #f8f9fa;
   --white: #fff;
-  --border: #e3e6ea;
+  --border: #E6ECF8;
   --bg: #f4f6f9;
   --bg2: #ffffff;
   --bg3: #f0f2f5;
   --bg4: #e8eaed;
-  --hborder: rgba(0, 0, 0, 0.08);
-  --hborder2: rgba(0, 0, 0, 0.14);
-  --txt: #1a1a1a;
-  --txt2: #5f6368;
-  --txt3: #9aa0a6;
+  --hborder: rgba(11, 27, 58, 0.08);
+  --hborder2: rgba(11, 27, 58, 0.14);
+  --txt: #0B1B3A;
+  --txt2: #55647E;
+  --txt3: #8B97AD;
 
   /* Mevo (parceiro) */
   --mevo-purple: #5a2a82;
@@ -42,6 +42,7 @@
 
   /* Famílias tipográficas (fontes carregadas via Google Fonts em layout.tsx) */
   --font-dm-sans: "DM Sans";
+  --font-instrument: "Instrument Serif";
   --font-caveat: "Caveat";
 }
 
@@ -506,7 +507,7 @@ body {
   padding: 28px 24px; text-align: center; font-size: 11px; line-height: 1.6;
 }
 .lp-m-footer .logo-no { margin-bottom: 10px; color: white; }
-.lp-m-footer .logo-no .no-word { color: #8ab4f8; }
+.lp-m-footer .logo-no .no-word { color: #2FA4F2; }
 
 /* ═══════════════════════════════════════════════════════════════
    TELA 2 — FILA MOBILE
@@ -758,7 +759,7 @@ body {
 .cm-doctor-name { font-size: 17px; font-weight: 600; margin-bottom: 2px; }
 .cm-doctor-spec { font-size: 12px; color: #bdc1c6; margin-bottom: 6px; }
 .cm-doctor-crm {
-  display: inline-block; font-size: 10px; color: #8ab4f8;
+  display: inline-block; font-size: 10px; color: #2FA4F2;
   background: rgba(66, 133, 244, 0.2);
   padding: 3px 10px; border-radius: 100px; backdrop-filter: blur(10px);
 }
@@ -795,7 +796,7 @@ body {
 }
 .cm-chat-preview-icon {
   width: 32px; height: 32px; border-radius: 9px;
-  background: rgba(66, 133, 244, 0.15); color: #8ab4f8;
+  background: rgba(66, 133, 244, 0.15); color: #2FA4F2;
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
 .cm-chat-preview-info { flex: 1; min-width: 0; }
@@ -1657,7 +1658,7 @@ body {
 }
 .lp-d-footer-col a:hover { color: white; }
 .lp-d-footer-col .logo-no { color: white; margin-bottom: 14px; }
-.lp-d-footer-col .logo-no .no-word { color: #8ab4f8; }
+.lp-d-footer-col .logo-no .no-word { color: #2FA4F2; }
 .lp-d-footer-tagline {
   font-size: 14px; color: #aaa; line-height: 1.55; max-width: 260px;
 }
@@ -1987,7 +1988,7 @@ body {
 }
 .cm-d-doctor-card-crm {
   display: inline-block; margin-top: 10px;
-  font-size: 11px; color: #8ab4f8;
+  font-size: 11px; color: #2FA4F2;
   background: rgba(66, 133, 244, 0.18);
   padding: 3px 12px; border-radius: 100px;
 }
