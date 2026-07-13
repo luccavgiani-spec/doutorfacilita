@@ -64,8 +64,8 @@ export default async function PosConsultaPage() {
           <Link href="/" style={{ textDecoration: "none" }}>
             <Logo size={30} />
           </Link>
-          <Link href="/fila" className="auth-top-link">
-            Voltar à <b>área do paciente</b>
+          <Link href="/" className="auth-top-link">
+            Voltar à <b>página inicial</b>
           </Link>
         </div>
         <div className="bar4">
@@ -135,45 +135,6 @@ export default async function PosConsultaPage() {
               </ol>
             </div>
           </section>
-
-          <aside className="pos-side">
-            <div className="pos-card pos-card--featured">
-              <span className="pos-card-tag">mais escolhido</span>
-              <h3>Pacote família</h3>
-              <p>Adicione até 4 dependentes e tenha <b>prioridade na fila</b> a partir de R$ 199/mês.</p>
-              <Link href="/fila" className="pos-cta pos-cta--primary">
-                Assinar família
-              </Link>
-            </div>
-
-            <div className="pos-card">
-              <h3>Exames complementares</h3>
-              <p>
-                Pedido de hemograma, ECG ou ultrassom em parceiros próximos
-                com desconto até 40%.
-              </p>
-              <Link href="/fila" className="pos-cta">Ver opções</Link>
-            </div>
-
-            <div className="pos-card">
-              <h3>Reconsulta em 7 dias</h3>
-              <p>
-                Por <b>R$ 29</b> volte a conversar com o mesmo médico sobre a
-                evolução do tratamento.
-              </p>
-              <Link href="/fila" className="pos-cta">Agendar</Link>
-            </div>
-
-            <div className="pos-card pos-card--soft">
-              <h3>Indique e ganhe</h3>
-              <p>
-                Cada amigo que se consultar te dá <b>R$ 10</b> de crédito.
-              </p>
-              <Link href="/fila" className="pos-cta pos-cta--ghost">
-                Pegar meu link
-              </Link>
-            </div>
-          </aside>
         </div>
       </main>
     </div>
