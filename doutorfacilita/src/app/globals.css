@@ -2749,7 +2749,8 @@ body {
 /* ─── Pós-consulta ────────────────────────────────────────── */
 .pos-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
+  grid-template-columns: 1fr;
+  justify-items: center;
   gap: 24px;
   width: 100%;
   align-items: start;
