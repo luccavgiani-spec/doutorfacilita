@@ -14,6 +14,10 @@ import {
   processPix,
   type ProcessResult,
 } from "@/lib/payments/mercadopago";
+import {
+  trackInitiateCheckout,
+  trackPurchase,
+} from "@/lib/tracking/meta-tracking";
 
 type PaymentMethod = "pix" | "card";
 
@@ -89,20 +93,44 @@ export default function CheckoutForm({
     });
   }, []);
 
+  // InitiateCheckout — dispara uma vez quando a consulta pendente está pronta.
+  const icFiredRef = useRef(false);
+  useEffect(() => {
+    if (prep && !icFiredRef.current) {
+      icFiredRef.current = true;
+      trackInitiateCheckout({ value: prep.amountCents / 100 });
+    }
+  }, [prep]);
+
+  // Pagamento confirmado: dispara Purchase (dedup por consultationId no
+  // trackPurchase) e leva à fila. Único ponto de "pago" no client.
+  const goToFilaPaid = useCallback(
+    (consultationId: string) => {
+      trackPurchase({
+        value: (prepRef.current?.amountCents ?? 3990) / 100,
+        order_id: consultationId,
+        sku: "AVULSA",
+        email: patientEmail,
+        itemName: "Consulta avulsa",
+      });
+      router.push(`/fila?consultation=${consultationId}`);
+      router.refresh();
+    },
+    [router, patientEmail],
+  );
+
   // ─── Resultado comum de um pagamento ────────────────────────────────
   const handleResult = useCallback(
     async (res: ProcessResult, consultationId: string) => {
       if (res.status === "approved") {
-        router.push(`/fila?consultation=${consultationId}`);
-        router.refresh();
+        goToFilaPaid(consultationId);
         return;
       }
       if (res.status === "challenge") {
         setChallenge({ url: res.three_ds.url });
         const paid = await pollUntilPaid(consultationId, { timeoutMs: 5 * 60_000 });
         if (paid) {
-          router.push(`/fila?consultation=${consultationId}`);
-          router.refresh();
+          goToFilaPaid(consultationId);
         } else {
           setChallenge(null);
           setError("Não confirmamos a autenticação do cartão. Tente novamente.");
@@ -115,8 +143,7 @@ export default function CheckoutForm({
         setProcessing(false);
         const paid = await pollUntilPaid(consultationId, { timeoutMs: 30 * 60_000 });
         if (paid) {
-          router.push(`/fila?consultation=${consultationId}`);
-          router.refresh();
+          goToFilaPaid(consultationId);
         }
         return;
       }
@@ -137,7 +164,7 @@ export default function CheckoutForm({
       setError("Pagamento em análise. Você será avisado assim que for aprovado.");
       setProcessing(false);
     },
-    [router],
+    [router, goToFilaPaid],
   );
 
   // Envia o cartão: fonte da verdade do token é getCardFormData() (o 2º arg do
