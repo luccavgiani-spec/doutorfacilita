@@ -93,6 +93,26 @@ export default function ConsultaLive({
     }
   }
 
+  // Sinal de "paciente entrou" — cancela o timer de evasão (no_show). Fonte
+  // PRIMÁRIA é o webhook do LiveKit (server-side); este write no cliente é um
+  // backup idempotente (RLS consultations_patient_update permite o paciente
+  // atualizar a própria row; `.is(null)` evita sobrescrever).
+  function handleConnected() {
+    if (role !== "patient") return;
+    (async () => {
+      try {
+        const supabase = createClient();
+        await supabase
+          .from("consultations")
+          .update({ patient_joined_at: new Date().toISOString() })
+          .eq("id", consultationId)
+          .is("patient_joined_at", null);
+      } catch {
+        // best-effort — o webhook do LiveKit é a fonte autoritativa.
+      }
+    })();
+  }
+
   if (state.kind === "loading") {
     return (
       <div className="consulta-loading">
@@ -129,6 +149,7 @@ export default function ConsultaLive({
         video
         audio
         data-lk-theme="default"
+        onConnected={handleConnected}
         onDisconnected={handleDisconnect}
         style={{ height: "100vh" }}
       >
