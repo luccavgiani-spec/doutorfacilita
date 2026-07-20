@@ -5,6 +5,7 @@ import DoctorMenu from "@/components/cockpit/DoctorMenu";
 import MevoPrescricaoCard from "@/components/cockpit/MevoPrescricaoCard";
 import CockpitFila from "@/components/cockpit/CockpitFila";
 import DoctorCallEmbedded from "@/components/cockpit/DoctorCallEmbedded";
+import EvasaoTimer from "@/components/cockpit/EvasaoTimer";
 import ChartPanel, { type ChartPanelHandle } from "@/components/cockpit/ChartPanel";
 import type { ActiveCallPayload } from "@/components/cockpit/CallNextButton";
 import { createClient } from "@/lib/supabase/client";
@@ -97,6 +98,25 @@ export default function CockpitScreen({
       });
     } catch (err) {
       console.error("[CockpitScreen] end_consultation invoke failed:", err);
+    }
+  }
+
+  // ── Evasão (no_show) confirmada pelo servidor ─────────────────────────
+  // A varredura pg_cron já marcou a consulta como no_show. Aqui apenas
+  // liberamos o médico: desmonta o vídeo e encerra a sala LiveKit (kicka
+  // participantes). end_consultation NÃO regride o status no_show (só avança de
+  // in_queue/in_progress), então serve como teardown seguro da sala.
+  function handleEvasao() {
+    const id = activeCall?.consultationId;
+    setActiveCall(null);
+    if (!id) return;
+    try {
+      const supabase = createClient();
+      void supabase.functions.invoke("end_consultation", {
+        body: { consultation_id: id },
+      });
+    } catch (err) {
+      console.error("[CockpitScreen] teardown pós-evasão falhou:", err);
     }
   }
 
@@ -235,11 +255,17 @@ export default function CockpitScreen({
         }}
       >
         {activeCall ? (
-          <DoctorCallEmbedded
-            token={activeCall.token}
-            url={activeCall.url}
-            onDisconnect={handleDoctorEndCall}
-          />
+          <div style={{ position: "relative", height: "100%", width: "100%" }}>
+            <EvasaoTimer
+              consultationId={activeCall.consultationId}
+              onEvasao={handleEvasao}
+            />
+            <DoctorCallEmbedded
+              token={activeCall.token}
+              url={activeCall.url}
+              onDisconnect={handleDoctorEndCall}
+            />
+          </div>
         ) : (
           <div className="doc-video-strip doc-video-empty">
             <div className="doc-video-empty-text">
