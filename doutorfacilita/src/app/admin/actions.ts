@@ -270,6 +270,7 @@ type QuickPatientInput = {
   city?: string;
   state?: string;       // UF
   allergies?: string[];
+  current_medications?: string[]; // MUC — medicamentos de uso contínuo
 };
 
 export type QuickPatientResult =
@@ -318,6 +319,7 @@ export async function quickCreatePatient(
 
   const nowIso = new Date().toISOString();
   const alergias = (input.allergies ?? []).map((a) => a.trim()).filter(Boolean);
+  const currentMedications = (input.current_medications ?? []).map((m) => m.trim()).filter(Boolean);
 
   const { data: created, error: createErr } = await admin.auth.admin.createUser({
     email: input.email.trim().toLowerCase(),
@@ -332,6 +334,7 @@ export async function quickCreatePatient(
       gender: input.gender || null,
       endereco_completo: enderecoCompleto || null,
       alergias,
+      current_medications: currentMedications,
       // endereço estruturado (trigger handle_new_user popula colunas dedicadas)
       address_line: addressLine || null,
       address_complement: input.address_complement?.trim() || null,

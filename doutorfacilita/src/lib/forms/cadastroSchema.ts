@@ -20,6 +20,9 @@ export const cadastroSchema = z
       .string()
       .refine(isValidBrDateNotFuture, "Data inválida (DD/MM/AAAA, sem datas futuras)"),
     genero: z.enum(["F", "M", "O", "N"]),
+    // saúde (aba Dados Pessoais) — persistem em patients.alergias / patients.current_medications
+    alergias: z.array(z.string().trim().min(1)).default([]),
+    current_medications: z.array(z.string().trim().min(1)).default([]),
     // 2
     cep: z.string().refine((v) => onlyDigits(v).length === 8, "CEP inválido"),
     logradouro: z.string().trim().min(2, "Informe o logradouro"),
@@ -30,7 +33,6 @@ export const cadastroSchema = z
     uf: z.enum(UFS),
     // 3
     cpf: z.string().refine(isValidCpf, "CPF inválido"),
-    alergias: z.array(z.string().trim().min(1)).default([]),
     // 4
     senha: z.string().refine(isStrongPassword, "Senha não atende aos requisitos"),
     confirmar_senha: z.string(),

@@ -34,9 +34,9 @@ const STEPS = [
 ] as const;
 
 const FIELDS_BY_STEP: Array<FieldPath<CadastroFormInput>[]> = [
-  ["nome", "sobrenome", "email", "telefone", "data_nascimento", "genero"],
+  ["nome", "sobrenome", "email", "telefone", "data_nascimento", "genero", "alergias", "current_medications"],
   ["cep", "logradouro", "numero", "complemento", "bairro", "cidade", "uf"],
-  ["cpf", "alergias"],
+  ["cpf"],
   [
     "senha",
     "confirmar_senha",
@@ -60,6 +60,7 @@ export default function CadastroWizard() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [emailSent, setEmailSent] = useState<string | null>(null);
   const [alergiaInput, setAlergiaInput] = useState("");
+  const [medicamentoInput, setMedicamentoInput] = useState("");
   const [cepLoading, setCepLoading] = useState(false);
 
   const form = useForm<CadastroFormInput, unknown, CadastroForm>({
@@ -81,6 +82,7 @@ export default function CadastroWizard() {
       uf: "SP",
       cpf: "",
       alergias: [],
+      current_medications: [],
       senha: "",
       confirmar_senha: "",
       emergency_contact_name: "",
@@ -148,6 +150,27 @@ export default function CadastroWizard() {
     );
   }
 
+  function addMedicamento() {
+    const v = medicamentoInput.trim();
+    if (!v) return;
+    const atuais = getValues("current_medications") ?? [];
+    if (atuais.includes(v)) {
+      setMedicamentoInput("");
+      return;
+    }
+    setValue("current_medications", [...atuais, v], { shouldValidate: true });
+    setMedicamentoInput("");
+  }
+
+  function removeMedicamento(item: string) {
+    const atuais = getValues("current_medications") ?? [];
+    setValue(
+      "current_medications",
+      atuais.filter((m) => m !== item),
+      { shouldValidate: true },
+    );
+  }
+
   async function onSubmit(data: CadastroForm) {
     setSubmitError(null);
     const supabase = createClient();
@@ -181,6 +204,7 @@ export default function CadastroWizard() {
           celular: normalizarCelularBR(data.telefone) ?? onlyDigits(data.telefone),
           endereco_completo: enderecoCompleto,
           alergias: data.alergias,
+          current_medications: data.current_medications,
           // Endereço estruturado (trigger handle_new_user popula nas colunas dedicadas)
           address_line: addressLine,
           address_number: data.numero.trim(),
@@ -213,6 +237,7 @@ export default function CadastroWizard() {
 
   const password = watch("senha");
   const alergias = watch("alergias") ?? [];
+  const medicamentos = watch("current_medications") ?? [];
 
   if (emailSent) {
     return (
@@ -387,6 +412,88 @@ export default function CadastroWizard() {
                     <option value="N">Prefiro não informar</option>
                   </select>
                 </div>
+
+                <div className="auth-field">
+                  <label className="auth-label">Alergias (opcional)</label>
+                  <div className="auth-chip-input">
+                    <input
+                      className="auth-input"
+                      value={alergiaInput}
+                      onChange={(e) => setAlergiaInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          addAlergia();
+                        }
+                      }}
+                      placeholder="Ex: dipirona"
+                    />
+                    <button
+                      type="button"
+                      onClick={addAlergia}
+                      className="auth-button auth-button--ghost"
+                    >
+                      Adicionar
+                    </button>
+                  </div>
+                  {alergias.length > 0 && (
+                    <div className="auth-chips">
+                      {alergias.map((a) => (
+                        <span key={a} className="auth-chip">
+                          {a}
+                          <button
+                            type="button"
+                            onClick={() => removeAlergia(a)}
+                            aria-label={`Remover ${a}`}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="auth-field">
+                  <label className="auth-label">Medicamentos de uso contínuo (opcional)</label>
+                  <div className="auth-chip-input">
+                    <input
+                      className="auth-input"
+                      value={medicamentoInput}
+                      onChange={(e) => setMedicamentoInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          addMedicamento();
+                        }
+                      }}
+                      placeholder="Ex: Losartana 50mg 1x/dia"
+                    />
+                    <button
+                      type="button"
+                      onClick={addMedicamento}
+                      className="auth-button auth-button--ghost"
+                    >
+                      Adicionar
+                    </button>
+                  </div>
+                  {medicamentos.length > 0 && (
+                    <div className="auth-chips">
+                      {medicamentos.map((m) => (
+                        <span key={m} className="auth-chip">
+                          {m}
+                          <button
+                            type="button"
+                            onClick={() => removeMedicamento(m)}
+                            aria-label={`Remover ${m}`}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </>
             )}
 
@@ -491,47 +598,6 @@ export default function CadastroWizard() {
                     )}
                   />
                   {errors.cpf && <div className="auth-error">{errors.cpf.message}</div>}
-                </div>
-
-                <div className="auth-field">
-                  <label className="auth-label">Alergias (opcional)</label>
-                  <div className="auth-chip-input">
-                    <input
-                      className="auth-input"
-                      value={alergiaInput}
-                      onChange={(e) => setAlergiaInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          addAlergia();
-                        }
-                      }}
-                      placeholder="Ex: dipirona"
-                    />
-                    <button
-                      type="button"
-                      onClick={addAlergia}
-                      className="auth-button auth-button--ghost"
-                    >
-                      Adicionar
-                    </button>
-                  </div>
-                  {alergias.length > 0 && (
-                    <div className="auth-chips">
-                      {alergias.map((a) => (
-                        <span key={a} className="auth-chip">
-                          {a}
-                          <button
-                            type="button"
-                            onClick={() => removeAlergia(a)}
-                            aria-label={`Remover ${a}`}
-                          >
-                            ×
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                  )}
                 </div>
               </>
             )}
