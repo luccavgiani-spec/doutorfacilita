@@ -420,6 +420,7 @@ function PatientHeader({
   const age = calcAge(patient.birth_date);
   const phoneRaw = patient.celular ?? patient.phone ?? "";
   const alergiasN = patient.alergias?.length ?? 0;
+  const medsN = patient.current_medications?.length ?? 0;
   return (
     <div className="chart-patient-header">
       <div className="chart-patient-av">{initials(patient.full_name)}</div>
@@ -444,6 +445,16 @@ function PatientHeader({
             <line x1="12" y1="16" x2="12.01" y2="16" />
           </svg>
           {alergiasN > 0 ? `${alergiasN} alergia${alergiasN > 1 ? "s" : ""}` : "Sem alergias"}
+        </span>
+        <span
+          className="chart-qa"
+          title={medsN > 0 ? patient.current_medications!.join(", ") : "Sem medicamentos de uso contínuo"}
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="m10.5 20.5-7-7a4.95 4.95 0 0 1 7-7l7 7a4.95 4.95 0 0 1-7 7Z" />
+            <path d="m8.5 8.5 7 7" />
+          </svg>
+          {medsN > 0 ? `${medsN} em uso contínuo` : "Sem MUC"}
         </span>
       </div>
     </div>
