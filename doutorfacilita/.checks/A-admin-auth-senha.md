@@ -23,7 +23,7 @@ Toca `src/app/admin/actions.ts` (payload do insert), `src/app/admin/medicos/acti
 | One-way door | Literal shape | Alternative rejected |
 | --- | --- | --- |
 | Unicidade só entre papéis ativos (Decided 1, já aplicado) | `CREATE UNIQUE INDEX unique_active_role ON public.user_roles (user_id, role) WHERE revoked_at IS NULL` | reativar a linha revogada - apaga o histórico do soft-delete |
-| Rota `/auth/confirm` vira contrato consumido pelo template "Reset Password" do Supabase (config externa aponta para ela) | `GET /auth/confirm?token_hash=<hash>&type=recovery` → `verifyOtp` → 302 `/redefinir-senha`; `GET /auth/confirm?code=<pkce>` → `exchangeCodeForSession` → 302 `next` (só caminho relativo `/x`, default `/redefinir-senha`); qualquer falha → 302 `/redefinir-senha?erro=link` | só PKCE (`?code=`) no `/redefinir-senha` client-side: com o template padrão funciona só no mesmo navegador que pediu o link (o code verifier fica no cookie dele) - abrir o e-mail no celular falharia sem saída; fluxo implícito (`#access_token` no hash): tokens na URL, e o `@supabase/ssr` é PKCE por padrão |
+| Rota `/auth/confirm` vira contrato consumido pelo link do e-mail "Reset Password" (o `redirectTo` aponta para ela; o template ficou no padrão `{{ .ConfirmationURL }}`, informado pelo coordenador em 2026-09-29, então o ramo ativo é `?code=`; `?token_hash=` fica pronto para quando o template mudar) | `GET /auth/confirm?token_hash=<hash>&type=recovery` → `verifyOtp` → 302 `/redefinir-senha`; `GET /auth/confirm?code=<pkce>` → `exchangeCodeForSession` → 302 `next` (só caminho relativo `/x`, default `/redefinir-senha`); qualquer falha → 302 `/redefinir-senha?erro=link` | só PKCE (`?code=`) no `/redefinir-senha` client-side: com o template padrão funciona só no mesmo navegador que pediu o link (o code verifier fica no cookie dele) - abrir o e-mail no celular falharia sem saída; fluxo implícito (`#access_token` no hash): tokens na URL, e o `@supabase/ssr` é PKCE por padrão |
 
 - `quickCreateConsultation` passa `created_at` explícito = `paid_at` = `queued_at` (um único instante do servidor da app). Reversível (código), registrado aqui porque há alternativa viva: RPC SQL com `now()` exigiria migration nova (DDL fora do escopo); insert `pending_payment` + update não resolve, pois PostgREST não expressa `now()` e o relógio continuaria o da app.
 - Corrida no `grantRole`: o perdedor de duas concessões simultâneas recebe `23505` do índice parcial → tratado como sucesso idempotente (o papel ficou ativo). Reversível.
@@ -83,7 +83,7 @@ Proof: `generateLink({type:'recovery'})` para `paciente-teste` (não envia e-mai
 Proof: `node login-check.mjs` - `signInWithPassword` com a senha do seed falha e com a nova passa; em seguida a senha do seed é restaurada via `auth.admin.updateUserById`
 
 **C14** - Link expirado/usado/inválido → "Link inválido ou expirado" + botão "Pedir novo link" → `/esqueci-senha`
-Proof: browser - `/auth/confirm?token_hash=invalido&type=recovery`, o mesmo `token_hash` já usado, e `/redefinir-senha` sem sessão mostram o texto e o botão com `href="/esqueci-senha"`
+Proof: browser - `/auth/confirm?code=invalido`, `/auth/confirm?error=access_denied&error_code=otp_expired`, `/auth/confirm?token_hash=invalido&type=recovery`, o mesmo `token_hash` já usado, e `/redefinir-senha` sem sessão mostram o texto e o botão com `href="/esqueci-senha"`
 
 **C15** - Senhas diferentes ou fracas mostram o erro no campo e não chamam `updateUser`
 Proof: browser - submit com senha fraca e com confirmação diferente mostra `.auth-error` no campo; nenhuma request `PUT /auth/v1/user`
@@ -108,3 +108,6 @@ Proof: browser - resposta 429 simulada no `fetch` de `/auth/v1/recover` mostra o
 ## Handoff
 
 - Sem handoff: S1-S4 ≈ 40k de leitura, um único agente. O Verifier independente roda sobre `main..HEAD` com todos os checks.
+- Settled mid-build (coordenador, 2026-09-29): template "Reset password" traduzido e mantido em `{{ .ConfirmationURL }}` (PKCE `?code=`); Redirect URLs de produção configuradas; SMTP próprio (Resend) ainda inativo - não enviar e-mail real em teste.
+- Abandoned: redirect absoluto via `request.nextUrl.origin` em `/auth/confirm` - no dev a origem do servidor é `localhost` e o usuário estava em `127.0.0.1`, trocando de pote de cookies; virou `Location` relativo (303).
+- Limites das provas: o ramo `?code=` válido não foi exercitado de ponta a ponta (exige e-mail real); o ramo `token_hash` foi, via `generateLink`. C2 no browser não foi possível: o `doctors` do `medico-teste` está soft-deleted (`current_doctor_id()` nulo) - provado por SQL com o JWT de um médico ativo, em transação abortada.

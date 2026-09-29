@@ -7,6 +7,11 @@ const UFS = [
   "PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO",
 ] as const;
 
+/** Regra de senha única do app: /cadastrar e /redefinir-senha. */
+export const senhaSchema = z
+  .string()
+  .refine(isStrongPassword, "Senha não atende aos requisitos");
+
 export const cadastroSchema = z
   .object({
     // 1
@@ -34,7 +39,7 @@ export const cadastroSchema = z
     // 3
     cpf: z.string().refine(isValidCpf, "CPF inválido"),
     // 4
-    senha: z.string().refine(isStrongPassword, "Senha não atende aos requisitos"),
+    senha: senhaSchema,
     confirmar_senha: z.string(),
     emergency_contact_name: z.string().trim().min(2, "Informe um nome"),
     emergency_contact_phone: z
@@ -52,6 +57,24 @@ export const cadastroSchema = z
       });
     }
   });
+
+/** /redefinir-senha: mesma regra de senha e mesma mensagem de confirmação. */
+export const novaSenhaSchema = z
+  .object({
+    senha: senhaSchema,
+    confirmar_senha: z.string(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.senha !== data.confirmar_senha) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["confirmar_senha"],
+        message: "As senhas não conferem",
+      });
+    }
+  });
+
+export type NovaSenhaForm = z.infer<typeof novaSenhaSchema>;
 
 export type CadastroFormInput = z.input<typeof cadastroSchema>;
 export type CadastroForm = z.output<typeof cadastroSchema>;

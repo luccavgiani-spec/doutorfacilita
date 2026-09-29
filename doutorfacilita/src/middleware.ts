@@ -28,5 +28,8 @@ export const config = {
     "/area-do-medico/:path*",
     "/login/:path*",
     "/login",
+    // Sessão de recuperação de senha: refresh do token enquanto o usuário
+    // está no formulário (o middleware não tem guard — não redireciona).
+    "/redefinir-senha",
   ],
 };
