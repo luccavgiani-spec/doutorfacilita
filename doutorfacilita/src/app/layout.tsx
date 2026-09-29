@@ -45,13 +45,15 @@ export default function RootLayout({
           'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
           })(window,document,'script','dataLayer','${GTM_ID}');
         `}</Script>
-        {/* Guarda o beforeinstallprompt (Android) antes da hidratação para o
-            botão "Adicionar atalho" da home — ver components/lp/InstallBar. */}
+        {/* Guarda o beforeinstallprompt (Chrome/Edge, Android e desktop) antes
+            da hidratação para o botão "Adicionar atalho" da home e avisa a
+            barra quando ele chega depois — ver components/lp/InstallBar. */}
         <Script id="pd-install-prompt" strategy="beforeInteractive">{`
           window.__pdInstallPrompt = null;
           window.addEventListener('beforeinstallprompt', function (e) {
             e.preventDefault();
             window.__pdInstallPrompt = e;
+            window.dispatchEvent(new Event('pd-install-ready'));
           });
           window.addEventListener('appinstalled', function () {
             window.__pdInstallPrompt = null;
