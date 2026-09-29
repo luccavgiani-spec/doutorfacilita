@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   title: "Plantão Digital — Consulta médica online por R$ 39,90",
   description:
     "Atendimento médico por vídeo em até 10 minutos. Sem agendamento. Receita digital, atestado e exames pelo celular. CRM ativo, LGPD, conformidade CFM.",
-  metadataBase: new URL("https://www.meuplantaodigital.com"),
+  metadataBase: new URL("https://plantaodigital.com.br"),
   openGraph: {
     title: "Plantão Digital — Saúde sem sair de casa",
     description: "Paga, entra na fila, médico te atende pelo vídeo em até 10 min.",
@@ -38,13 +38,13 @@ export default function RootLayout({
           content="3a5yrek88b4r53flgehe775cilqlcg"
         />
         {/* Google Tag Manager — injeta Meta Pixel + GA4 (tags dentro do container) */}
-        <Script id="gtm-base" strategy="afterInteractive">{`
+        <script id="gtm-base" dangerouslySetInnerHTML={{ __html: `
           (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
           new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
           j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
           'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
           })(window,document,'script','dataLayer','${GTM_ID}');
-        `}</Script>
+        ` }} />
         {/* Guarda o beforeinstallprompt (Chrome/Edge, Android e desktop) antes
             da hidratação para o botão "Adicionar atalho" da home e avisa a
             barra quando ele chega depois — ver components/lp/InstallBar. */}

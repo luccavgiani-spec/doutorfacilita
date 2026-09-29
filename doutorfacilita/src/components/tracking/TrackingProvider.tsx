@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
-import { initMetaTracking, trackPageView } from "@/lib/tracking/meta-tracking";
+import { initMetaTracking, trackPageView, trackViewContent } from "@/lib/tracking/meta-tracking";
 
 /**
  * Inicializa o rastreamento client-side e re-dispara o PageView do Meta Pixel
@@ -17,18 +17,18 @@ import { initMetaTracking, trackPageView } from "@/lib/tracking/meta-tracking";
  */
 export default function TrackingProvider() {
   const pathname = usePathname();
-  const isFirstRender = useRef(true);
+  const previousPath = useRef<string | null>(null);
 
   useEffect(() => {
     initMetaTracking();
   }, []);
 
   useEffect(() => {
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
-      return; // evita PageView duplicado no load inicial (GTM já disparou)
-    }
-    trackPageView();
+    if (previousPath.current === pathname) return;
+    const firstRender = previousPath.current === null;
+    previousPath.current = pathname;
+    if (!firstRender) trackPageView(); // base GTM já cobre a carga inicial
+    if (pathname === "/") trackViewContent({ value: 39.9 });
   }, [pathname]);
 
   return null;
