@@ -61,8 +61,8 @@ Proof: `node e2e/cockpit-templates.mjs` → `PASS C6 …`
 
 ### S2 - Anexos · 2 arquivos · ~20 KB · ~5k
 
-**C7** - Admin anexa `.pdf` em `/admin/templates/novo` e salva: objeto existe no bucket, a linha persiste `attachment_path/name/mime` (editor recarregado mostra "📎 <nome>" e o mime) e "abrir" baixa exatamente os bytes enviados
-Proof: `node e2e/cockpit-templates.mjs` → `PASS C7 …`
+**C7** - Admin anexa `.pdf`, `.doc` ou `.docx` em `/admin/templates/novo`: o Storage aceita os três ("📎 <nome>", mime, "abrir" devolve os mesmos bytes); salvo com o `.pdf`, a linha persiste `attachment_path/name/mime` (editor recarregado mostra "📎 <nome>" e o mime no bloco do anexo) e "abrir" baixa exatamente os bytes enviados
+Proof: `node e2e/cockpit-templates.mjs` → `PASS C7 .doc aceito …`, `PASS C7 .docx aceito …`, `PASS C7 editor recarregado …`, `PASS C7 'abrir' …`, `PASS C7 bytes …`
 
 **C8** - No cockpit, template com anexo mostra link "📎 <attachment_name>" cujo href é URL assinada de `template-attachments` que devolve os bytes do arquivo
 Proof: `node e2e/cockpit-templates.mjs` → `PASS C8 …`
@@ -71,7 +71,7 @@ Proof: `node e2e/cockpit-templates.mjs` → `PASS C8 …`
 
 `e2e/cockpit-templates.mjs` (Playwright) fica no scratchpad da sessão (`C:\Users\lucca\AppData\Local\Temp\claude\C--Users-lucca-projetos-plantao-digital-plantao-digital\db6397ac-dd20-40c2-b4ab-b483d06fa710\scratchpad\e2e\`), não no repo: roda contra o banco de **produção** via dev server local `:3102`. Ele cria um template de teste `AAA TESTE AUTOMATIZADO <ts>` com anexo, e ao fim remove o anexo e exclui o template pelo próprio admin. Toda escrita no Supabase fora de `prontuario_templates`/`template-attachments` é **bloqueada**; o upsert de `medical_records` é interceptado e respondido localmente (o teste lê o corpo da requisição, nada grava no prontuário real). Consultas usadas (conta de teste, só leitura): `dbd01aeb…` (com `doctor_id`) e `e63cb386…` (sem `doctor_id`). A remoção do anexo é conferida pedindo uma **nova** assinatura (a URL assinada antiga continua 200 pelo cache da CDN, `cacheControl: 3600`). Pré-requisito: `npx next dev -p 3102` em `doutorfacilita/` com `.env.local`.
 
-Última execução (2026-09-29, HEAD da feature): `ALL PASS`, 0 escritas do browser bloqueadas, 1 upsert de `medical_records` interceptado; `npm test` 23/23; `npm run type-check` e `npm run build` limpos.
+Última execução (2026-09-29, HEAD da feature): `ALL PASS` (44 linhas PASS), 0 escritas do browser bloqueadas, 1 upsert de `medical_records` interceptado; `npm test` 23/23; `npm run type-check` e `npm run build` limpos. Verifier independente (round 1, profile light): PASS 8/8; lacunas apontadas - C7 só com `.pdf` (fechada: `.doc`/`.docx` acrescentados ao harness) e C1/C8 provados com conta que também é admin (caminho médico-sem-admin depende das policies existentes; não há conta de teste assim).
 
 ## Swept
 
