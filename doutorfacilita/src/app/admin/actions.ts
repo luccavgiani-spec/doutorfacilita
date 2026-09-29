@@ -431,6 +431,10 @@ export async function quickCreateConsultation(
     };
   }
 
+  // created_at vai explícito com o MESMO instante de paid_at/queued_at.
+  // Deixá-lo no default now() do banco violava a CHECK timestamps_order
+  // (paid_at >= created_at) sempre que o relógio deste servidor estava atrás
+  // do relógio do banco.
   const nowIso = new Date().toISOString();
   const paymentId = `ADMIN-MANUAL-${crypto.randomUUID()}`;
   const { data, error } = await admin
@@ -441,6 +445,7 @@ export async function quickCreateConsultation(
       service_name: "Consulta avulsa",
       amount_cents: VALOR_CENTAVOS_AVULSA,
       status: "in_queue",
+      created_at: nowIso,
       paid_at: nowIso,
       queued_at: nowIso,
       payment_id: paymentId,
