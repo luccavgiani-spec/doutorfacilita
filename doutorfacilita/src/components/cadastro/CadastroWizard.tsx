@@ -8,6 +8,7 @@ import { useForm, Controller, type FieldPath } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import { createClient } from "@/lib/supabase/client";
+import { gtagEvent } from "@/lib/tracking/gtag-events";
 import {
   maskCpf,
   maskPhone,
@@ -225,6 +226,10 @@ export default function CadastroWizard() {
       setSubmitError(error.message || "Não foi possível criar sua conta.");
       return;
     }
+
+    // Cadastro aceito pelo Auth; nunca registrar submit/erro como conversão.
+    // identities vazio pode ser a resposta anti-enumeração de conta existente.
+    if (out.user?.identities?.length) gtagEvent("sign_up", { method: "email" });
 
     if (out.session) {
       router.push("/login/redirect");

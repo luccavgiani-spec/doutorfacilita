@@ -9,7 +9,7 @@
  *   • GA4:        G-KRB2Q1S4D9
  *   • Google Ads: ⏳ pendente (GOOGLE_ADS_ID vazio → conversões viram no-op)
  */
-import { GOOGLE_ADS_ID, CURRENCY } from "./config";
+import { GOOGLE_ADS_ID, GA4_MEASUREMENT_ID, CURRENCY } from "./config";
 
 declare global {
   interface Window {
@@ -27,12 +27,15 @@ export function gtagEvent(
   if (typeof window === "undefined") return;
   if (typeof window.gtag !== "function") {
     if (process.env.NODE_ENV === "development") {
-      console.warn("[gtag-events] gtag indisponível. Evento ignorado:", eventName);
+      console.info("[gtag-events] criando fila para:", eventName);
     }
-    return;
+    // A tag do GTM carrega o transporte; esta função só cria a fila oficial.
+    // Não depende de o container exportar window.gtag e não carrega outro script.
+    window.dataLayer = window.dataLayer || [];
+    window.gtag = function () { window.dataLayer!.push(arguments); };
   }
   try {
-    window.gtag("event", eventName, params);
+    window.gtag("event", eventName, { send_to: GA4_MEASUREMENT_ID, ...params });
     if (process.env.NODE_ENV === "development") {
       console.log("[gtag-events] Evento enviado:", eventName, params);
     }

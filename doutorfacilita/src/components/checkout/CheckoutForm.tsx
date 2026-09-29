@@ -110,7 +110,6 @@ export default function CheckoutForm({
         value: (prepRef.current?.amountCents ?? 3990) / 100,
         order_id: consultationId,
         sku: "AVULSA",
-        email: patientEmail,
         itemName: "Consulta avulsa",
       });
       router.push(`/fila?consultation=${consultationId}`);
@@ -148,7 +147,9 @@ export default function CheckoutForm({
         return;
       }
       if (res.status === "rejected") {
-        setError("Pagamento recusado. Tente outro cartão ou use PIX.");
+        setError(res.status_detail === "cc_rejected_call_for_authorize"
+          ? "O banco pediu autorização para esta compra. Entre em contato com o banco ou use PIX."
+          : "Pagamento recusado. Tente outro cartão ou use PIX.");
         setProcessing(false);
         return;
       }
@@ -161,7 +162,9 @@ export default function CheckoutForm({
         setProcessing(false);
         return;
       }
-      setError("Pagamento em análise. Você será avisado assim que for aprovado.");
+      const paid = await pollUntilPaid(consultationId, { timeoutMs: 5 * 60_000 });
+      if (paid) { goToFilaPaid(consultationId); return; }
+      setError("Pagamento ainda em análise. Confira o status antes de tentar pagar novamente.");
       setProcessing(false);
     },
     [router, goToFilaPaid],

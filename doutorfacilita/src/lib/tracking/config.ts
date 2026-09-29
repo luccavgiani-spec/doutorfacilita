@@ -22,17 +22,16 @@ export const GOOGLE_ADS_CONVERSIONS = {
 } as const;
 
 // Domínio dos cookies _fbp/_fbc (atribuição/dedup da Meta).
-export const COOKIE_DOMAIN = ".meuplantaodigital.com";
+export const COOKIE_DOMAIN = ".plantaodigital.com.br";
 
 export const CURRENCY = "BRL";
 
 // Rastreio server-side (Meta CAPI). Pré-requisitos:
 //   1) segredo META_ACCESS_TOKEN no Supabase ......... ✅ criado (14/07/2026)
 //   2) Edge Function `supabase/functions/meta-capi` ... ✅ escrita no repo
-//   3) DEPLOY da função ............................... ⏳ pendente:
+//   3) DEPLOY da função ............................... confirmado em 29/09/2026:
 //      supabase functions deploy meta-capi --project-ref tylpojscdbkzulykdguv --no-verify-jwt
-// Enquanto a função não estiver deployada, sendToMetaCAPI() recebe 404 (capturado
-// e logado como warn; NÃO quebra nada — o Pixel client-side segue funcionando).
+// Função ativa v1, verify_jwt=false; POST {} retorna 400 event_name_required.
 export const CAPI_ENABLED = true;
 export const SUPABASE_FUNCTIONS_URL =
   "https://tylpojscdbkzulykdguv.supabase.co/functions/v1";

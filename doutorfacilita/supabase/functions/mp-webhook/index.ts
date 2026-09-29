@@ -108,9 +108,10 @@ Deno.serve(async (req) => {
 
     const type = body?.type ?? body?.topic ??
       url.searchParams.get("type") ?? url.searchParams.get("topic") ?? "";
-    const paymentId = body?.data?.id != null
-      ? String(body.data.id)
-      : (url.searchParams.get("data.id") ?? url.searchParams.get("id") ?? "");
+    const queryId = url.searchParams.get("data.id") ?? url.searchParams.get("id");
+    const bodyId = body?.data?.id != null ? String(body.data.id) : null;
+    if (queryId && bodyId && queryId.toLowerCase() !== bodyId.toLowerCase()) return json({ error: "payment_id_mismatch" }, 400);
+    const paymentId = queryId ?? bodyId ?? "";
 
     // Só tratamos eventos de pagamento; o resto (merchant_order etc.) → ack.
     if (type && !String(type).includes("payment")) {
@@ -161,11 +162,12 @@ Deno.serve(async (req) => {
     // Descobre o método para escolher o token do app certo:
     //   • assinatura validada → o app do secret que bateu manda.
     //   • sem secrets (bootstrapping) → linha existente, senão tenta ambos.
-    const { data: pagRow } = await admin
+    const { data: pagRow, error: lookupError } = await admin
       .from("pagamentos_mp")
       .select("id, consultation_id, metodo, status")
       .eq("mp_payment_id", paymentId)
       .maybeSingle();
+    if (lookupError) throw new Error("payment_lookup_failed");
 
     const metodos: ("card" | "pix")[] = validatedApp
       ? [validatedApp]
@@ -173,9 +175,11 @@ Deno.serve(async (req) => {
 
     let payment: Record<string, unknown> | null = null;
     let all404 = true;
+    let configuredTokens = 0;
     for (const m of metodos) {
       const token = mpToken(m);
       if (!token) continue;
+      configuredTokens++;
       const r = await mpGetPayment(token, paymentId);
       if (r.ok) {
         payment = r.data;
@@ -187,7 +191,8 @@ Deno.serve(async (req) => {
 
     // Id de teste / inexistente → ack 200 (não estourar 500, não gerar retry).
     if (!payment) {
-      return json({ received: true, note: all404 ? "payment_not_found" : "mp_unreachable" }, 200);
+      if (!configuredTokens) return json({ error: "mp_not_configured" }, 503);
+      return all404 ? json({ received: true, note: "payment_not_found" }, 200) : json({ error: "mp_unreachable" }, 503);
     }
 
     const status = String(payment.status ?? "");
@@ -201,41 +206,58 @@ Deno.serve(async (req) => {
       ? "card"
       : (pagRow?.metodo ?? "pix");
 
+    if (status === "approved" && consultaId) {
+      const { data: consulta, error } = await admin.from("consultations")
+        .select("id, amount_cents").eq("id", consultaId).maybeSingle();
+      if (error) throw new Error("consultation_lookup_failed");
+      if (!consulta || !Number.isSafeInteger(consulta.amount_cents) || consulta.amount_cents <= 0 ||
+          Math.round(Number(payment.transaction_amount) * 100) !== consulta.amount_cents) {
+        return json({ error: "payment_amount_mismatch" }, 422);
+      }
+    }
+    const statusDetail = String(payment.status_detail ?? "") || null;
+
     // Atualiza/insere a linha de pagamento (idempotente via UNIQUE mp_payment_id).
     if (pagRow) {
-      await admin.from("pagamentos_mp").update({ status }).eq("id", pagRow.id);
+      const { error } = await admin.from("pagamentos_mp").update({ status, status_detail: statusDetail }).eq("id", pagRow.id);
+      if (error) throw new Error("payment_update_failed");
     } else if (consultaId) {
       // Webhook chegou antes da confirmação síncrona salvar o id: casa com a
       // linha pendente da consulta, senão cria uma.
-      const { data: pend } = await admin
+      const { data: pend, error: pendingError } = await admin
         .from("pagamentos_mp")
         .select("id, valor_cents")
         .eq("consultation_id", consultaId)
+        .eq("metodo", metodo)
         .eq("status", "pending")
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
+      if (pendingError) throw new Error("pending_payment_lookup_failed");
       if (pend) {
-        await admin
+        const { error } = await admin
           .from("pagamentos_mp")
-          .update({ mp_payment_id: paymentId, status })
+          .update({ mp_payment_id: paymentId, status, status_detail: statusDetail })
           .eq("id", pend.id);
+        if (error) throw new Error("pending_payment_update_failed");
       } else {
         const valor = Math.round(Number(payment.transaction_amount ?? 0) * 100);
-        await admin.from("pagamentos_mp").insert({
+        const { error } = await admin.from("pagamentos_mp").insert({
           consultation_id: consultaId,
           metodo,
           mp_payment_id: paymentId,
           status,
+          status_detail: statusDetail,
           valor_cents: valor,
           external_reference: consultaId,
         });
+        if (error) throw new Error("payment_insert_failed");
       }
     }
 
     if (status === "approved" && consultaId) {
       const nowIso = new Date().toISOString();
-      await admin
+      const { error } = await admin
         .from("consultations")
         .update({
           status: "in_queue",
@@ -245,17 +267,18 @@ Deno.serve(async (req) => {
           payment_id: paymentId,
         })
         .eq("id", consultaId)
-        .eq("status", "created");
+        .eq("status", "created")
+        .is("paid_at", null);
+      if (error) throw new Error("paid_consultation_update_failed");
     }
 
     return json({ received: true, status }, 200);
   } catch (e) {
     console.error("[mp-webhook] erro inesperado", e);
-    // Ack mesmo em erro nosso evita tempestade de retry do MP; o próximo evento
-    // (ou o polling do cliente) reconcilia.
+    // O polling só lê o banco; falhas exigem retry do webhook para reconciliar.
     return json(
-      { received: true, error: e instanceof Error ? e.message : String(e) },
-      200,
+      { received: false, error: "webhook_processing_failed" },
+      500,
     );
   }
 });

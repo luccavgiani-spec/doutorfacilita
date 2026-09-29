@@ -175,9 +175,10 @@ export async function pollUntilPaid(
   const deadline = Date.now() + (opts.timeoutMs ?? 10 * 60_000);
   while (Date.now() < deadline) {
     const st = await fetchConsultaStatus(consultationId);
-    if (st === "paid" || st === "in_queue" || st === "in_progress" || st === "completed") {
+    if (st === "paid") {
       return true;
     }
+    if (st === "cancelled" || st === "rejected" || st === "refunded") return false;
     await new Promise((r) => setTimeout(r, interval));
   }
   return false;

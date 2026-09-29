@@ -9,8 +9,10 @@
 // deploy no passado — ver mp-process-payment).
 //
 // Secret necessário: META_ACCESS_TOKEN (Events Manager → API de Conversões).
-// verify_jwt: FALSE — chamada do browser sem Authorization. Faça o deploy com:
+// verify_jwt: FALSE — Purchase valida Authorization e compra internamente.
 //   supabase functions deploy meta-capi --project-ref tylpojscdbkzulykdguv --no-verify-jwt
+
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const PIXEL_ID = "1891368092249300";
 const META_API_VERSION = "v21.0"; // bump livre se a Meta depreciar
@@ -34,6 +36,7 @@ interface CAPIPayload {
   value?: number;
   currency?: string;
   order_id?: string;
+  event_id?: string;
   fbp?: string;
   fbc?: string;
   client_user_agent?: string;
@@ -55,6 +58,34 @@ Deno.serve(async (req) => {
   }
   if (!payload.event_name) return json({ error: "event_name_required" }, 400);
 
+  if (payload.event_name === "Purchase") {
+    const jwt = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
+    if (!jwt) return json({ error: "missing_authorization" }, 401);
+    if (!payload.order_id) return json({ error: "order_id_required" }, 400);
+    const url = Deno.env.get("SUPABASE_URL");
+    const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!url || !key) return json({ error: "server_configuration_missing" }, 503);
+    const admin = createClient(url, key, { auth: { persistSession: false } });
+    const { data: auth, error: authError } = await admin.auth.getUser(jwt);
+    if (authError || !auth.user) return json({ error: "invalid_authorization" }, 401);
+    const { data: patient, error: patientError } = await admin.from("patients")
+      .select("id").eq("user_id", auth.user.id).maybeSingle();
+    if (patientError) return json({ error: "purchase_verification_failed" }, 503);
+    if (!patient) return json({ error: "purchase_not_found" }, 403);
+    const { data: consultation, error: consultationError } = await admin.from("consultations")
+      .select("paid_at, amount_cents").eq("id", payload.order_id)
+      .eq("patient_id", patient.id).maybeSingle();
+    if (consultationError) return json({ error: "purchase_verification_failed" }, 503);
+    if (!consultation?.paid_at) return json({ error: "purchase_not_paid" }, 409);
+    if (!Number.isInteger(consultation.amount_cents) || consultation.amount_cents <= 0)
+      return json({ error: "purchase_amount_invalid" }, 422);
+    payload.value = consultation.amount_cents / 100;
+    payload.currency = "BRL";
+    payload.event_id = payload.order_id;
+    payload.event_time = Math.floor(new Date(consultation.paid_at).getTime() / 1000);
+    payload.test_event_code = undefined;
+  }
+
   // user_data (identificadores anônimos de atribuição — nada clínico).
   const userData: Record<string, string> = {};
   if (payload.fbp) userData.fbp = payload.fbp;
@@ -74,9 +105,9 @@ Deno.serve(async (req) => {
     event_name: payload.event_name,
     event_time: payload.event_time || Math.floor(Date.now() / 1000),
     // event_id = order_id permite dedup com o Pixel client-side (mesmo id).
-    event_id: payload.order_id ||
+    event_id: payload.event_id || payload.order_id ||
       `${Date.now()}_${Math.random().toString(36).substring(2)}`,
-    event_source_url: payload.event_source_url || "https://www.meuplantaodigital.com",
+    event_source_url: "https://plantaodigital.com.br/",
     action_source: "website",
     user_data: userData,
     custom_data: customData,

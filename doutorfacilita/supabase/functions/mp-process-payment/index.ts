@@ -1,28 +1,12 @@
-// mp-process-payment — cria o pagamento no Mercado Pago (cartão E PIX) via
-// Payments API (/v1/payments). Invocada pelo cliente via supabase.functions.invoke.
-//
-// Fluxo:
-//   1. valida JWT → resolve patients (patients.user_id = auth.uid())
-//   2. carrega a consulta pendente; exige ownership + status='created'
-//   3. GUARD anti-tamper: valor vem de consultations.amount_cents (422 se NULL/≤0)
-//   4. seleciona o access token do app certo (card→CARTAO, pix→PIX)
-//   5. monta payer + additional_info completos (nota +90) e chama /v1/payments
-//   6. cartão aprovado (síncrono) → marca a consulta paga (in_queue) idempotente
-//   7. 3DS (pending_challenge) → devolve { status:'challenge', three_ds:{url} }
-//   8. PIX → devolve qr_code / qr_code_base64 para exibição + polling
-//
-// SELF-CONTAINED de propósito: helpers (CORS/JSON/MP/resolvePatient) inline para
-// deploy robusto (imports ../_shared já quebraram deploy no passado).
-//
-// Secrets: MP_ACCESS_TOKEN_CARTAO, MP_ACCESS_TOKEN_PIX (+ SUPABASE_* automáticos).
-// verify_jwt: false (valida o JWT internamente via resolvePatient).
+// mp-process-payment — Payments API (/v1/payments), cartão E PIX. SELF-CONTAINED.
+// verify_jwt: false (valida JWT internamente via resolvePatient).
+// v12: persiste status_detail; statement_descriptor também no PIX; log de rejected.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const MP_API = "https://api.mercadopago.com";
-// ATENÇÃO: o MP limita o statement_descriptor a 13 chars. Com 14+ ele responde
-// 500 internal_error (não trunca) e derruba o pagamento inteiro. Mantemos ≤13.
-const STATEMENT_DESCRIPTOR = "PLANTAODIGITA"; // 13 chars (de "PLANTAODIGITAL")
+// MP limita statement_descriptor a 13 chars; 14+ => 500 internal_error.
+const STATEMENT_DESCRIPTOR = "PLANTAODIGITA";
 
 type Metodo = "pix" | "card";
 
@@ -39,7 +23,6 @@ const json = (b: Record<string, unknown>, status = 200) =>
 
 const onlyDigits = (v: string | null | undefined) => (v ?? "").replace(/\D/g, "");
 
-/** Normaliza celular BR → 10/11 dígitos (descarta DDI 55), ou undefined. */
 function normalizarCelularBR(v: string | null | undefined): string | undefined {
   let d = onlyDigits(v);
   if (d.startsWith("55") && (d.length === 12 || d.length === 13)) d = d.slice(2);
@@ -123,7 +106,6 @@ function extract3dsUrl(data: Record<string, unknown>): string | null {
   return typeof url === "string" && url ? url : null;
 }
 
-/** Resolve o paciente pelo JWT (user client valida → service_role busca). */
 // deno-lint-ignore no-explicit-any
 async function resolvePatient(req: Request): Promise<
   { error: Response } | { patient: PatientRow; authEmail: string | null; admin: any }
@@ -206,7 +188,7 @@ Deno.serve(async (req) => {
 
   const { data: consulta, error: cErr } = await admin
     .from("consultations")
-    .select("id, patient_id, status, amount_cents, service_code, service_name")
+    .select("id, patient_id, status, paid_at, amount_cents, service_code, service_name")
     .eq("id", body.consultation_id)
     .maybeSingle();
 
@@ -215,13 +197,13 @@ Deno.serve(async (req) => {
   if (consulta.patient_id !== patient.id) {
     return json({ error: "consulta_de_outro_paciente" }, 403);
   }
-  if (consulta.status !== "created") {
+  if (consulta.paid_at || consulta.status !== "created") {
     return json({ error: "consulta_nao_pendente", status: consulta.status }, 409);
   }
 
   const amountCents = consulta.amount_cents as number | null;
-  if (amountCents == null || amountCents <= 0) {
-    return json({ error: "valor_invalido", message: "amount_cents ausente ou ≤ 0." }, 422);
+  if (amountCents == null || !Number.isSafeInteger(amountCents) || amountCents <= 0) {
+    return json({ error: "valor_invalido", message: "amount_cents ausente ou <= 0." }, 422);
   }
   const amountReais = Number((amountCents / 100).toFixed(2));
 
@@ -236,7 +218,6 @@ Deno.serve(async (req) => {
   );
   const description = (consulta.service_name as string | null) ?? "Teleconsulta";
 
-  // Registro em pagamentos_mp (SELECT → INSERT explícito).
   const { data: existente } = await admin
     .from("pagamentos_mp")
     .select("id")
@@ -302,6 +283,7 @@ Deno.serve(async (req) => {
       description,
       external_reference: externalRef,
       payment_method_id: "pix",
+      statement_descriptor: STATEMENT_DESCRIPTOR.slice(0, 13),
       payer: {
         email: payer.email,
         first_name: payer.first_name,
@@ -314,7 +296,6 @@ Deno.serve(async (req) => {
     idempotencyKey = `${consulta.id}:pix`;
   }
 
-  // Chama o Mercado Pago (headers fora do body).
   const h: Record<string, string> = {
     "Content-Type": "application/json",
     Authorization: `Bearer ${token}`,
@@ -332,7 +313,11 @@ Deno.serve(async (req) => {
 
   if (!mpRes.ok) {
     console.error("[mp-process-payment] MP error", mpRes.status, JSON.stringify(result));
-    await admin.from("pagamentos_mp").update({ status: "error" }).eq("id", pagamentoId);
+    const errDetail = String(result?.message ?? result?.error ?? "").slice(0, 500) || null;
+    await admin
+      .from("pagamentos_mp")
+      .update({ status: "error", status_detail: errDetail })
+      .eq("id", pagamentoId);
     const detail = result?.message ?? result?.error ?? "erro no gateway";
     return json(
       { error: "mp_error", message: String(detail), mp_status: mpRes.status, detail },
@@ -346,7 +331,11 @@ Deno.serve(async (req) => {
 
   await admin
     .from("pagamentos_mp")
-    .update({ mp_payment_id: mpPaymentId || null, status })
+    .update({
+      mp_payment_id: mpPaymentId || null,
+      status,
+      status_detail: statusDetail || null,
+    })
     .eq("id", pagamentoId);
 
   if (status === "approved") {
@@ -358,6 +347,11 @@ Deno.serve(async (req) => {
     const url = extract3dsUrl(result);
     if (url) return json({ status: "challenge", three_ds: { url }, payment_id: mpPaymentId });
     return json({ status: "pending", payment_id: mpPaymentId });
+  }
+
+  if (status === "rejected" || status === "cancelled") {
+    console.warn("[mp-process-payment] rejected", JSON.stringify({ payment_id: mpPaymentId, status_detail: statusDetail, metodo }));
+    return json({ status: "rejected", status_detail: statusDetail });
   }
 
   if (metodo === "pix") {
@@ -373,15 +367,13 @@ Deno.serve(async (req) => {
     });
   }
 
-  if (status === "rejected") return json({ status: "rejected", status_detail: statusDetail });
   return json({ status: "pending", payment_id: mpPaymentId });
 });
 
-/** Marca a consulta paga → fila. Idempotente: só transiciona de 'created'. */
 // deno-lint-ignore no-explicit-any
 async function markConsultaPaga(admin: any, consultationId: string, paymentId: string) {
   const nowIso = new Date().toISOString();
-  await admin
+  const { error } = await admin
     .from("consultations")
     .update({
       status: "in_queue",
@@ -391,5 +383,7 @@ async function markConsultaPaga(admin: any, consultationId: string, paymentId: s
       payment_id: paymentId,
     })
     .eq("id", consultationId)
-    .eq("status", "created");
+    .eq("status", "created")
+    .is("paid_at", null);
+  if (error) throw new Error("paid_consultation_update_failed");
 }
