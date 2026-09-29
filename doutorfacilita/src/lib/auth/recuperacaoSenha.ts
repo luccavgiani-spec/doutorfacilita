@@ -47,11 +47,20 @@ export function urlRetornoRecuperacao(origin: string): string {
 
 /**
  * Aceita só caminho relativo do próprio site ("/x"); qualquer outra coisa
- * (URL absoluta, "//host", "/\host") cai no destino padrão. Evita open redirect
- * via `?next=` em /auth/confirm.
+ * (URL absoluta, "//host", "/\host", "/<TAB>/host"…) cai no destino padrão.
+ * Evita open redirect via `?next=` em /auth/confirm. Resolve com o mesmo
+ * parser de URL do navegador (que descarta TAB/CR/LF e trata "\" como "/")
+ * e exige que a origem não mude.
  */
 export function destinoSeguro(next: string | null | undefined): string {
   if (!next || !next.startsWith("/")) return DESTINO_REDEFINIR;
-  if (next.startsWith("//") || next.startsWith("/\\")) return DESTINO_REDEFINIR;
-  return next;
+  const base = "http://destino.invalid";
+  let url: URL;
+  try {
+    url = new URL(next, base);
+  } catch {
+    return DESTINO_REDEFINIR;
+  }
+  if (url.origin !== base) return DESTINO_REDEFINIR;
+  return url.pathname + url.search + url.hash;
 }
