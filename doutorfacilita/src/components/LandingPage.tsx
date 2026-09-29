@@ -262,8 +262,17 @@ function HeroVideo() {
     if (!v) return;
     v.muted = true;
     v.defaultMuted = true;
-    const p = v.play();
-    if (p) p.catch(() => {});
+    const tryPlay = () => {
+      const p = v.play();
+      if (p) p.catch(() => {});
+    };
+    tryPlay();
+    // o navegador pode pausar o vídeo com a aba em segundo plano; retoma ao voltar
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && v.paused) tryPlay();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
   }, []);
   return (
     <video

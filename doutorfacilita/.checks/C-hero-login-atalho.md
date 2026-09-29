@@ -29,7 +29,7 @@ remove apenas o bloco `.auth-split*`/`.auth-main--split`, exclusivo do /login), 
 | One-way door | Literal shape | Alternative rejected |
 | --- | --- | --- |
 | Identidade do atalho instalado (decidida na task) | manifest `name`/`short_name` "Plantão Digital", `start_url` "/", `id` "/", `display` "standalone", ícones da logo | `display: "browser"` — Chrome não oferece instalação |
-| Captura de `beforeinstallprompt` antes da hidratação | script inline `beforeInteractive` no root layout guarda o evento em `window.__pdInstallPrompt` (com `preventDefault`) e emite `pd:installprompt` | listener só no `useEffect` da barra — perde o evento quando o Chrome dispara antes da hidratação |
+| Captura de `beforeinstallprompt` antes da hidratação | script inline `beforeInteractive` no root layout guarda o evento em `window.__pdInstallPrompt` (com `preventDefault`); a barra lê essa global no clique | listener só no `useEffect` da barra — perde o evento quando o Chrome dispara antes da hidratação |
 | Chave de dispensa no `localStorage` | `pd-atalho-dispensado` = `"1"` (também gravada em `appinstalled`) | cookie — seria enviado em toda request sem necessidade |
 
 - Nada mais aqui é difícil de reverter.
