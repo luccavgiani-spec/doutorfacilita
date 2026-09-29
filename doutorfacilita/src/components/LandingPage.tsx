@@ -695,93 +695,6 @@ function Pricing() {
   );
 }
 
-/* ───────────────────────── BENEFÍCIOS ───────────────────────── */
-function Benefits() {
-  const items = [
-    {
-      title: "Sem agendamento",
-      desc: "Nada de esperar dias por um horário. Entrou na fila, foi atendido no mesmo dia.",
-      icon: (
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M13 2L4.5 12.5H11l-1 9.5L18.5 11H12l1-9z" />
-        </svg>
-      ),
-    },
-    {
-      title: "Médicos verificados",
-      desc: "Todos os profissionais têm CRM ativo e são verificados antes de atender na plataforma.",
-      icon: (
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 2l7 4v6c0 5-3.5 8-7 10-3.5-2-7-5-7-10V6l7-4z" /><path d="M9 12l2 2 4-4" />
-        </svg>
-      ),
-    },
-    {
-      title: "Receita aceita na farmácia",
-      desc: "Receita digital com assinatura eletrônica válida em qualquer farmácia do Brasil.",
-      icon: (
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" /><path d="M14 2v6h6M9 15h6M12 12v6" />
-        </svg>
-      ),
-    },
-    {
-      title: "Dados protegidos",
-      desc: "Consulta criptografada e prontuário seguro, em conformidade com LGPD e normas do CFM.",
-      icon: (
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="4" y="10" width="16" height="11" rx="2" /><path d="M8 10V7a4 4 0 018 0v3" />
-        </svg>
-      ),
-    },
-  ];
-  return (
-    <section className="bg-[#F7F9FD] py-24">
-      <div className="mx-auto max-w-[1120px] px-5">
-        <motion.div
-          variants={stagger}
-          initial="hidden"
-          whileInView="show"
-          viewport={{ once: true, margin: "-80px" }}
-          className="mx-auto max-w-[600px] text-center"
-        >
-          <motion.span variants={fadeUp} className="text-[13px] font-bold uppercase tracking-[0.16em] text-[#1E5AE8]">
-            Por que o Plantão Digital
-          </motion.span>
-          <motion.h2 variants={fadeUp} className="mt-3 text-[32px] font-bold leading-tight tracking-[-0.02em] text-[#0B1B3A] sm:text-[40px]">
-            Saúde{" "}
-            <span className="font-serif italic text-[#1E5AE8]">descomplicada</span>, do jeito
-            que deveria ser
-          </motion.h2>
-        </motion.div>
-
-        <motion.div
-          variants={stagger}
-          initial="hidden"
-          whileInView="show"
-          viewport={{ once: true, margin: "-80px" }}
-          className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4"
-        >
-          {items.map((b) => (
-            <motion.div
-              key={b.title}
-              variants={fadeUp}
-              whileHover={{ y: -6 }}
-              className="rounded-3xl border border-[#E6ECF8] bg-white p-7 shadow-[0_2px_8px_rgba(11,27,58,0.04)] transition-shadow hover:shadow-[0_20px_44px_-12px_rgba(11,27,58,0.14)]"
-            >
-              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F2F6FF] text-[#1E5AE8]">
-                {b.icon}
-              </span>
-              <h3 className="mt-5 text-[17px] font-bold text-[#0B1B3A]">{b.title}</h3>
-              <p className="mt-2 text-[14px] leading-relaxed text-[#55647E]">{b.desc}</p>
-            </motion.div>
-          ))}
-        </motion.div>
-      </div>
-    </section>
-  );
-}
-
 /* ──────────────────────── DEPOIMENTOS ────────────────────────
    ⚠️ Depoimentos de DEMONSTRAÇÃO — conteúdo 100% fictício e original,
    criado como placeholder da LP do Plantão Digital. Substituir por
@@ -1193,9 +1106,8 @@ export default function LandingPage() {
         <Stats />
         <HowItWorks />
         <Pricing />
-        <Benefits />
-        <Testimonials />
         <Faq />
+        <Testimonials />
         <FinalCta />
       </main>
       <Footer />
