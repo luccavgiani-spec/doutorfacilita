@@ -1,11 +1,49 @@
 # A — Admin e autenticação: verificação
 
-**Verdict**: FAIL (round 2: o fix do `destinoSeguro` fechou TAB/LF/backslash, mas abriu um bypass novo por dot-segment: `/.//evil.example` agora vira `//evil.example`)
+**Verdict**: PASS com ressalvas. Não há finding bloqueante nem check em FAIL. 13/16 checks foram provados de forma independente. C12 e C13 dependem de evidência de runtime do autor que o verificador foi proibido de reexecutar (login/browser), e C5 tem o login real não testável, limite que o próprio checklist declara. A lacuna 2 é risco aceito pelo autor e está pendente de decisão do Lucca.
 **Profile**: light (passo 1 de ui, a junção Coverage/Test policy e a injeção de faltas não rodaram, como manda o profile)
-**Diff range**: 7fa7347..b74d57a (round 2 escopado ao fix `e8b41fa..b74d57a`)
-**Round**: 2, escopado (round 1 completo em e8b41fa)
+**Diff range**: 7fa7347..09098c5 (round 3 escopado ao fix `b74d57a..09098c5`)
+**Round**: 3, escopado (round 1 completo em e8b41fa; round 2 escopado em b74d57a)
 
-## Round 2 — verified at b74d57a
+## Round 3 — verified at 09098c5
+
+Escopo: o diff `b74d57a..09098c5`. Ele troca `destinoSeguro` por lista fechada (`src/lib/auth/recuperacaoSenha.ts:48-58`), estende o teste no scratchpad e muda a linha de one-way door do Landing em `.checks/A-admin-auth-senha.md:26`. Também entram as superfícies tocadas (C11, C12 e C14 via `/auth/confirm`) e os veredictos não-PASS (C5, C12, C13). O resto é **carried from e8b41fa**.
+
+### Provas reexecutadas no HEAD 09098c5
+
+- `npm run type-check` → `tsc --noEmit` exit 0
+- `node --import ./ts-resolve.mjs --test recuperacao.test.mjs` → 10 passed, 0 failed, com os nomes individuais. `destinoSeguro recusa open redirect` (`:62-75`) agora afirma `/redefinir-senha` para TAB, LF, `%09`, `/\/` e, no laço de `:72-74`, para `/.//evil.example`, `/..//evil.example`, `/a/..//evil.example`, `/%2e//evil.example`, `/checkout?x=1` e `/redefinir-senha/../..//evil.example`
+- `node verifier-redirect.mjs`: os 13 payloads dos rounds 1 e 2 e mais 14 ataques contra a lista fechada. Os ataques novos foram prefixo e sufixo do valor permitido (`/redefinir-senha//evil.example`, `/redefinir-senha/../..//evil.example`, `/redefinir-senha\t`, `/redefinir-senha `, `/redefinir-senha\u0000`, `#//evil.example`, `?//evil.example`), variação de caixa (`/REDEFINIR-SENHA`), codificação (`/redefinir%2Dsenha`), prefixo de controle (`\t/redefinir-senha`), URL absoluta com o mesmo path, `""`, `null` e `undefined`. Resultado: `{"saidas_distintas":["/redefinir-senha"]}`. **Nenhum dos 27 inputs gera saída diferente de `/redefinir-senha`**, e nenhum resolve fora do site.
+- Por construção: `recuperacaoSenha.ts:57` `return next && DESTINOS_PERMITIDOS.includes(next) ? next : DESTINO_REDEFINIR;` compara por igualdade exata de string contra `[DESTINO_REDEFINIR]` (`:49`). A saída só pode ser o literal `/redefinir-senha`, e não sobra espaço para parser nem para normalização. O único consumidor é `src/app/auth/confirm/route.ts:34` (`git grep`).
+
+### Veredictos reavaliados
+
+| Check | Round 2 | Round 3 | Nota |
+|---|---|---|---|
+| C11 | PASS | PASS (verified at 09098c5) | testes C11 verdes; `urlRetornoRecuperacao` inalterada, e seu `next=/redefinir-senha` está na lista |
+| C12 | PARCIAL | PARCIAL (verified at 09098c5) | o `?code=` válido segue para `/redefinir-senha` (teste `:63`). O runtime da sessão via cookie no 303 continua só do autor, e o ramo `?code=` válido nunca foi exercitado por ninguém |
+| C14 | PASS | PASS (verified at 09098c5) | `route.ts:37` (`?erro=link`) inalterado |
+| C5 | PARCIAL | PARCIAL (carried from e8b41fa) | login das 3 contas não testável |
+| C13 | PARCIAL | PARCIAL (carried from e8b41fa) | runtime só do autor |
+| C1-C4, C6-C10, C15, C16 | PASS | PASS (carried from e8b41fa) | fora do diff; C15/C16 também verdes de novo nos testes puros |
+
+**Contagem round 3**: 13 PASS, 3 PARCIAL, 0 FAIL. Open redirect **fechado** (findings 1 do round 1 e do round 2 resolvidos).
+
+### Checklist alterado (linha do Landing)
+
+A one-way door de `/auth/confirm` (`.checks/A-admin-auth-senha.md:26`) passou a "303 `next` (lista fechada: só `/redefinir-senha`…)", e isso bate com o código. Há uma imprecisão menor, não bloqueante: a mesma linha ainda diz `verifyOtp` → **302** `/redefinir-senha`, mas `route.ts:44` responde **303** em todos os ramos.
+
+### Lacunas remanescentes (não bloqueantes)
+
+1. **Lacuna 2** (`/redefinir-senha` aceita qualquer sessão, `redefinir-senha/page.tsx:26`): risco aceito pelo autor, **decisão do Lucca**. Detalhe no round 2 abaixo.
+2. C12 e C13 dependem de runtime só do autor; o ramo `?code=` válido não foi exercitado de ponta a ponta por ninguém (exige e-mail real).
+3. C5: o login real das 3 contas não é testável.
+4. As provas puras (`recuperacao.test.mjs`, `ts-resolve.mjs`) continuam só no scratchpad e somem com a sessão.
+5. Go-live (Unresolved 1): `redirectTo` com `window.location.origin` depende da allowlist de Redirect URLs.
+
+---
+
+## Round 2 — carried from b74d57a
 
 Escopo: o diff `e8b41fa..b74d57a` (`src/lib/auth/recuperacaoSenha.ts` `destinoSeguro` + o teste no scratchpad), os veredictos que não eram PASS (C5, C12, C13) e as superfícies tocadas (C11, C12 e C14 passam por `/auth/confirm`). O resto é **carried from e8b41fa**.
 
