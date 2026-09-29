@@ -218,6 +218,9 @@ export default function LoginForm() {
 
   return (
     <div className="auth-shell">
+      {/* Referência 2 no mobile: só o card (com logo e "Criar conta") — a barra
+          superior repetiria o logo, então só aparece a partir de lg. */}
+      <div className="hidden lg:block">
       <header className="auth-top">
         <div className="auth-top-inner">
           <Link href="/" style={{ textDecoration: "none" }} aria-label="Plantão Digital — página inicial">
@@ -228,6 +231,7 @@ export default function LoginForm() {
           </Link>
         </div>
       </header>
+      </div>
 
       <main className="relative flex-1 overflow-hidden">
         <div className="mx-auto grid w-full max-w-[1120px] items-center gap-6 px-4 py-6 sm:px-6 sm:py-12 lg:grid-cols-[1fr_456px] lg:py-12">

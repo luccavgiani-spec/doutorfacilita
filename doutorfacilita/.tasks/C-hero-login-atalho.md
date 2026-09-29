@@ -38,7 +38,7 @@ mobile, com o link "Esqueci minha senha?"; e no mobile a home tem uma barra que 
 11. Quando o usuário clica no segmento "Criar conta" ou em "Criar minha conta", vai para `/cadastrar`.
 12. Com credenciais válidas vai para `/login/redirect`; com inválidas vê "Email ou senha inválidos" e os campos com borda de erro; durante o envio o botão mostra "Entrando..." desabilitado.
 13. Em 375 px, `/login` mostra só o card de acesso (sem coluna de marketing e sem foto), com todos os elementos de 10, sem rolagem horizontal.
-14. A barra superior mantém logo à esquerda e "Não tem conta? Cadastre-se" → `/cadastrar` à direita.
+14. Em ≥1024 px, a barra superior mantém logo à esquerda e "Não tem conta? Cadastre-se" → `/cadastrar` à direita; abaixo de 1024 px ela não aparece (referência 2 mobile mostra só o card — ajuste do Lucca/Claude em 2026-09-29).
 15. Always, `/cadastrar` e `/trocar-senha` renderizam igual a hoje — compartilham as classes `auth-*` de `globals.css` com o `LoginForm` (112 usos no `CadastroWizard`).
 
 ### Atalho na tela do celular
