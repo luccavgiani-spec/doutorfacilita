@@ -786,8 +786,8 @@ function Benefits() {
    ⚠️ Depoimentos de DEMONSTRAÇÃO — conteúdo 100% fictício e original,
    criado como placeholder da LP do Plantão Digital. Substituir por
    depoimentos reais (com consentimento dos pacientes) antes do
-   lançamento. Fotos são retratos de banco (placeholder), NÃO de clientes
-   reais — ver PHOTO_BY_NAME e o aviso lá. Layout inspirado em marquee de
+   lançamento. Fotos: public/assets/depoimentos (ver PHOTO_BY_NAME).
+   Layout inspirado em marquee de
    colunas (inspiração de alto nível, sem código/texto de terceiros).
    ──────────────────────────────────────────────────────────────── */
 type Testimonial = {

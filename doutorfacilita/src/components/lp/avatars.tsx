@@ -50,20 +50,18 @@ export function PersonAvatar({ name }: { name: string }) {
   );
 }
 
-/* Fotos de perfil (placeholder). São retratos de banco (randomuser.me), NÃO de
-   clientes reais desta plataforma. ⚠️ ANTES DO LANÇAMENTO, substituir por fotos
-   e depoimentos de clientes reais que autorizaram o uso — publicar depoimento
-   fictício com foto de pessoa não relacionada engana o paciente. Se a imagem
-   não carregar (offline/CSP), cai no avatar ilustrado <PersonAvatar />. */
+/* Fotos dos depoimentos — fornecidas pelo Lucca (2026-09-29), recortadas em
+   160×160 webp em public/assets/depoimentos. Se a imagem não carregar, cai no
+   avatar ilustrado <PersonAvatar />. */
 export const PHOTO_BY_NAME: Record<string, string> = {
-  "Marina T.": "https://randomuser.me/api/portraits/women/68.jpg",
-  "Rafael Andrade": "https://randomuser.me/api/portraits/men/32.jpg",
-  "Cláudia Nogueira": "https://randomuser.me/api/portraits/women/65.jpg",
-  "Patrícia L.": "https://randomuser.me/api/portraits/women/12.jpg",
-  "Diego Farias": "https://randomuser.me/api/portraits/men/75.jpg",
-  "Henrique B.": "https://randomuser.me/api/portraits/men/51.jpg",
-  "Aline Souza": "https://randomuser.me/api/portraits/women/90.jpg",
-  "Vinícius M.": "https://randomuser.me/api/portraits/men/44.jpg",
+  "Marina T.": "/assets/depoimentos/marina-t.webp",
+  "Rafael Andrade": "/assets/depoimentos/rafael-andrade.webp",
+  "Cláudia Nogueira": "/assets/depoimentos/claudia-nogueira.webp",
+  "Patrícia L.": "/assets/depoimentos/patricia-l.webp",
+  "Diego Farias": "/assets/depoimentos/diego-farias.webp",
+  "Henrique B.": "/assets/depoimentos/henrique-b.webp",
+  "Aline Souza": "/assets/depoimentos/aline-souza.webp",
+  "Vinícius M.": "/assets/depoimentos/vinicius-m.webp",
 };
 
 export function AvatarPhoto({ name, className = "h-11 w-11" }: { name: string; className?: string }) {
