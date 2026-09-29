@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import "./globals.css";
 import TrackingProvider from "@/components/tracking/TrackingProvider";
@@ -15,6 +15,16 @@ export const metadata: Metadata = {
     type: "website",
     locale: "pt_BR",
   },
+  // atalho na tela inicial do iOS (ícone: src/app/apple-icon.png, 180×180)
+  appleWebApp: {
+    title: "Plantão Digital",
+    capable: true,
+    statusBarStyle: "default",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#1E5AE8",
 };
 
 export default function RootLayout({
@@ -34,6 +44,18 @@ export default function RootLayout({
           j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
           'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
           })(window,document,'script','dataLayer','${GTM_ID}');
+        `}</Script>
+        {/* Guarda o beforeinstallprompt (Android) antes da hidratação para o
+            botão "Adicionar atalho" da home — ver components/lp/InstallBar. */}
+        <Script id="pd-install-prompt" strategy="beforeInteractive">{`
+          window.__pdInstallPrompt = null;
+          window.addEventListener('beforeinstallprompt', function (e) {
+            e.preventDefault();
+            window.__pdInstallPrompt = e;
+          });
+          window.addEventListener('appinstalled', function () {
+            window.__pdInstallPrompt = null;
+          });
         `}</Script>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
