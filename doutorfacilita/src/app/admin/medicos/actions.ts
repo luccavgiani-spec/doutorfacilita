@@ -51,6 +51,12 @@ export async function grantRole(
     .select("id")
     .single();
 
+  // 23505 no índice parcial unique_active_role = outra concessão simultânea
+  // já deixou o papel ativo. O estado pedido foi atingido: idempotente.
+  if (error?.code === "23505") {
+    revalidatePath("/admin/medicos");
+    return { ok: true };
+  }
   if (error) return { ok: false, error: error.message };
 
   await logAdminAction({

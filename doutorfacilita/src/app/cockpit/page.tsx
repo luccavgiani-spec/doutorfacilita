@@ -19,7 +19,7 @@ export default async function Page({
   const supabase = await createClient();
   const { data: perfil } = await supabase
     .from("doctors")
-    .select("id, full_name, council, council_number, council_state")
+    .select("id, full_name, council, council_number, council_state, primary_specialty")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -60,6 +60,7 @@ export default async function Page({
     <CockpitScreen
       consultationId={consultationId}
       doctorNome={nome}
+      doctorEspecialidade={perfil.primary_specialty ?? null}
       doctorSub={sub}
       doctorAvatarUrl={doctorAvatarUrl}
     />

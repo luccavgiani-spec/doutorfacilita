@@ -11,7 +11,7 @@ const DEFAULT_CFG: MevoConfig = {
   enabled: false,
   ambiente: "homologacao",
   subparceiro: "PLANTAO_DIGITAL",
-  logo_url: "https://www.meuplantaodigital.com/assets/logo-plantao-digital.png",
+  logo_url: "https://www.meuplantaodigital.com/assets/logo-plantao-digital.jpg",
   cor_primaria: "#1E5AE8", // azul primário Plantão Digital
   cor_secundaria: "#2FA4F2", // azul claro Plantão Digital
   certificado_obrigatorio: true,
