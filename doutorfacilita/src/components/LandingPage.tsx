@@ -10,7 +10,9 @@ import {
   type Variants,
 } from "framer-motion";
 import ShapeGrid from "./ShapeGrid";
-import { Logo } from "./Logo";
+import { Logo, LogoMark } from "./Logo";
+import { AvatarPhoto } from "./lp/avatars";
+import InstallBar from "./lp/InstallBar";
 
 const EASE: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
@@ -178,9 +180,162 @@ function Nav() {
 
 /* ─────────────────────────── HERO ─────────────────────────── */
 
+/* ícones de traço da hero (mesma família dos demais ícones da LP) */
+function StrokeIcon({ size = 24, children }: { size?: number; children: React.ReactNode }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      {children}
+    </svg>
+  );
+}
+const IconVideoCam = ({ size = 22 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+    <rect x="2" y="6" width="13" height="12" rx="3" />
+    <path d="M16.5 10.2 21 7.5v9l-4.5-2.7z" />
+  </svg>
+);
+const IconLock = () => (
+  <StrokeIcon size={18}>
+    <rect x="5" y="10.5" width="14" height="10" rx="2.2" />
+    <path d="M8.5 10.5V7.8a3.5 3.5 0 0 1 7 0v2.7" />
+  </StrokeIcon>
+);
+const IconRecipe = () => (
+  <StrokeIcon size={30}>
+    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4" />
+    <path d="M14 3v4a1 1 0 0 0 1 1h4v3" />
+    <path d="M8.5 11h6M8.5 14.5h3.5" />
+    <circle cx="17.5" cy="17.5" r="4" fill="#10B981" stroke="#10B981" />
+    <path d="m15.8 17.6 1.2 1.2 2.3-2.4" stroke="#fff" />
+  </StrokeIcon>
+);
+const IconShieldCheck = ({ size = 30 }: { size?: number }) => (
+  <StrokeIcon size={size}>
+    <path d="M12 3 5 5.8v5.4c0 4.4 3 8.1 7 9.8 4-1.7 7-5.4 7-9.8V5.8z" />
+    <path d="m9 12 2.2 2.2L15.5 10" />
+  </StrokeIcon>
+);
+const IconFlask = () => (
+  <StrokeIcon size={30}>
+    <path d="M9.5 3h5M10.5 3v6.2L5.2 18.4A1.8 1.8 0 0 0 6.8 21h10.4a1.8 1.8 0 0 0 1.6-2.6L13.5 9.2V3" />
+    <path d="M7.6 15h8.8" />
+  </StrokeIcon>
+);
+const IconClock = () => (
+  <StrokeIcon size={26}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 7.5V12l3 2" />
+  </StrokeIcon>
+);
+const IconTeam = () => (
+  <StrokeIcon size={26}>
+    <circle cx="12" cy="8" r="3.2" />
+    <path d="M6 20v-1.2A4.8 4.8 0 0 1 10.8 14h2.4a4.8 4.8 0 0 1 4.8 4.8V20" />
+    <circle cx="5" cy="10" r="2.2" />
+    <circle cx="19" cy="10" r="2.2" />
+    <path d="M2 18.5v-.6a3 3 0 0 1 3-3M22 18.5v-.6a3 3 0 0 0-3-3" />
+  </StrokeIcon>
+);
+
+const HERO_CARDS = [
+  { title: "Receita digital", sub: "enviada na hora", icon: <IconRecipe /> },
+  { title: "Atestado", sub: "válido e seguro", icon: <IconShieldCheck /> },
+  { title: "Pedido de exames", sub: "sem papel", icon: <IconFlask /> },
+];
+
+const HERO_STRIP = [
+  { title: "Atendimento 7h–23h", sub: "todos os dias", icon: <IconClock /> },
+  { title: "CRM ativo", sub: "e atendimento seguro", icon: <IconShieldCheck size={26} /> },
+  { title: "Equipe médica qualificada", sub: "e em constante avaliação", icon: <IconTeam /> },
+];
+
+/* Vídeo da médica dentro do mockup: autoplay mudo em loop, sem nenhum
+   controle para o usuário (sem controls, sem PiP, sem menu de contexto,
+   sem clique). O React não serializa `muted` no HTML do SSR, então o
+   efeito garante o mudo antes de pedir o play — requisito de autoplay
+   no Chrome Android e no Safari iOS. Se o play for bloqueado (ex.: modo
+   de economia do iOS), o poster continua na tela. */
+function HeroVideo() {
+  const ref = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    const v = ref.current;
+    if (!v) return;
+    v.muted = true;
+    v.defaultMuted = true;
+    const p = v.play();
+    if (p) p.catch(() => {});
+  }, []);
+  return (
+    <video
+      ref={ref}
+      className="pointer-events-none absolute inset-0 h-full w-full select-none object-cover"
+      src="/assets/hero-medica.mp4"
+      poster="/assets/hero-medica-poster.webp"
+      autoPlay
+      muted
+      loop
+      playsInline
+      preload="metadata"
+      disablePictureInPicture
+      controlsList="nodownload nofullscreen noremoteplayback"
+      onContextMenu={(e) => e.preventDefault()}
+      tabIndex={-1}
+      aria-label="Médica atendendo por vídeo no Plantão Digital"
+    />
+  );
+}
+
+/* Mockup de celular com a "chamada" (cabeçalho com a logo e controles
+   desenhados — puramente decorativos). */
+function PhoneMockup() {
+  return (
+    <div data-hero-phone className="relative mx-auto w-[240px] rotate-[4deg] sm:w-[262px] lg:w-[272px]">
+      <span aria-hidden className="absolute -left-[3px] top-[96px] h-9 w-[3px] rounded-l bg-[#1B2440]" />
+      <span aria-hidden className="absolute -left-[3px] top-[142px] h-9 w-[3px] rounded-l bg-[#1B2440]" />
+      <span aria-hidden className="absolute -right-[3px] top-[118px] h-14 w-[3px] rounded-r bg-[#1B2440]" />
+      <div className="relative aspect-[9/19] rounded-[42px] bg-[#111a2e] p-[9px] shadow-[0_40px_70px_-22px_rgba(11,27,58,0.55),0_14px_30px_-12px_rgba(30,90,232,0.35)] ring-1 ring-[#2A3350]">
+        <div className="relative h-full w-full overflow-hidden rounded-[34px] bg-[#DCE6F5]">
+          <HeroVideo />
+
+          {/* dynamic island */}
+          <div aria-hidden className="absolute left-1/2 top-[9px] z-10 h-[20px] w-[84px] -translate-x-1/2 rounded-full bg-[#111a2e]" />
+
+          {/* cabeçalho da chamada com a logo */}
+          <div data-hero-phone-header className="absolute inset-x-0 top-0 bg-gradient-to-b from-white via-white/80 to-transparent px-4 pb-9 pt-9">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <LogoMark size={20} />
+                <span className="text-[13px] font-bold tracking-tight text-[#0B1B3A]">
+                  Plantão<span className="text-[#1E5AE8]">Digital</span>
+                </span>
+              </span>
+              <span aria-hidden className="flex h-7 w-7 items-center justify-center rounded-full bg-white shadow-[0_2px_6px_rgba(11,27,58,0.12)]">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="#55647E"><circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" /></svg>
+              </span>
+            </div>
+          </div>
+
+          {/* controles da chamada (desenhados, não clicáveis) */}
+          <div data-hero-phone-controls aria-hidden className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-4 bg-gradient-to-t from-black/40 to-transparent pb-6 pt-12">
+            <span data-control="mic" className="flex h-11 w-11 items-center justify-center rounded-full bg-white/30 text-white backdrop-blur-md">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" /></svg>
+            </span>
+            <span data-control="encerrar" className="flex h-[52px] w-[52px] items-center justify-center rounded-full bg-[#EF4444] text-white shadow-[0_6px_16px_rgba(239,68,68,0.5)]">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 9c-2.6 0-5 .5-7.2 1.5-.7.3-1.1 1-1.1 1.8v2.4c0 .8.8 1.4 1.6 1.2l2.9-.8c.6-.2 1-.7 1-1.3v-1.6c1.8-.5 3.8-.5 5.6 0v1.6c0 .6.4 1.1 1 1.3l2.9.8c.8.2 1.6-.4 1.6-1.2v-2.4c0-.8-.4-1.5-1.1-1.8C17 9.5 14.6 9 12 9z" /></svg>
+            </span>
+            <span data-control="camera" className="flex h-11 w-11 items-center justify-center rounded-full bg-white/30 text-white backdrop-blur-md">
+              <IconVideoCam size={20} />
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Hero() {
   return (
-    <section className="relative isolate overflow-hidden bg-gradient-to-b from-[#EEF4FF] via-white to-white">
+    <section data-hero className="relative isolate overflow-hidden bg-gradient-to-b from-[#EEF4FF] via-white to-white">
       {/* grid animado de fundo */}
       <div className="absolute inset-0 -z-10">
         <ShapeGrid
@@ -194,78 +349,135 @@ function Hero() {
         />
       </div>
 
-      {/* overlays de legibilidade: clareia o centro (texto nítido) e desvanece as bordas */}
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(62%_55%_at_50%_42%,rgba(255,255,255,0.9)_0%,rgba(255,255,255,0.7)_48%,rgba(255,255,255,0)_100%)]" />
+      {/* overlays de legibilidade: clareiam atrás do texto e desvanecem a base */}
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(50%_55%_at_28%_42%,rgba(255,255,255,0.92)_0%,rgba(255,255,255,0.65)_55%,rgba(255,255,255,0)_100%)]" />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-40 bg-gradient-to-b from-transparent to-white" />
 
-      {/* textura suave (brilho superior) */}
-      <div className="pointer-events-none absolute -top-40 left-1/2 -z-10 h-[560px] w-[900px] -translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,rgba(47,164,242,0.14),transparent)]" />
+      {/* O contêiner deixa o hover passar para o grid; só os blocos de
+          conteúdo capturam o ponteiro. */}
+      <div className="pointer-events-none relative mx-auto max-w-[1180px] px-5 pb-14 pt-10 sm:pt-14 lg:pb-16 lg:pt-14">
+        <div className="grid items-center gap-12 lg:grid-cols-[1.05fr_1fr] lg:gap-4">
+          <motion.div
+            data-hero-copy
+            variants={stagger}
+            initial="hidden"
+            animate="show"
+            className="pointer-events-auto flex flex-col items-start"
+          >
+            <motion.span
+              variants={fadeUp}
+              className="inline-flex items-center gap-2.5 rounded-full border border-[#E3EBFA] bg-white px-4 py-2 text-[14px] font-semibold text-[#1E5AE8] shadow-[0_4px_14px_rgba(11,27,58,0.06)]"
+            >
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#10B981] opacity-75" />
+                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#10B981]" />
+              </span>
+              Médicos online agora
+            </motion.span>
 
-      <div className="relative mx-auto flex min-h-[calc(100dvh-68px)] max-w-[1120px] flex-col items-center justify-center px-5 pb-24 pt-16 lg:pb-28 lg:pt-20">
-        <motion.div
+            <motion.h1
+              variants={fadeUp}
+              className="mt-6 text-[40px] font-bold leading-[1.04] tracking-[-0.035em] sm:text-[56px] lg:text-[50px] xl:text-[64px]"
+            >
+              <span className="block text-[#0B1B3A]">Seu médico,</span>
+              <span className="block text-[#1E5AE8]">onde você estiver.</span>
+            </motion.h1>
+
+            <motion.p variants={fadeUp} className="mt-5 max-w-[560px] text-[17px] leading-relaxed text-[#55647E] sm:text-[19px]">
+              Consulta online por vídeo, com médicos de CRM ativo.
+            </motion.p>
+
+            <motion.div variants={fadeUp} className="mt-8 w-full sm:w-auto">
+              <Link
+                href="/login"
+                data-hero-cta
+                className="group flex w-full items-center justify-center gap-2.5 rounded-full bg-[#1E5AE8] px-4 py-[17px] text-[15px] font-semibold text-white shadow-[0_12px_30px_rgba(30,90,232,0.42)] transition hover:-translate-y-0.5 hover:bg-[#1748C9] hover:shadow-[0_16px_36px_rgba(30,90,232,0.5)] sm:inline-flex sm:w-auto sm:gap-3 sm:px-8 sm:py-[19px] sm:text-[18px]"
+              >
+                <IconVideoCam size={22} />
+                <span>
+                  Iniciar consulta agora — <span className="whitespace-nowrap">R$ 39,90</span>
+                </span>
+                <span className="transition-transform group-hover:translate-x-1">
+                  <Arrow />
+                </span>
+              </Link>
+              <p className="mt-4 flex items-center justify-center gap-2 text-[13.5px] text-[#55647E] sm:justify-start sm:pl-10">
+                <span className="text-[#55647E]"><IconLock /></span>
+                Pagamento seguro e protegido
+              </p>
+            </motion.div>
+          </motion.div>
+
+          <motion.div
+            data-hero-visual
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, ease: EASE, delay: 0.2 }}
+            className="relative mx-auto w-full max-w-[560px] lg:max-w-none"
+          >
+            {/* círculo azul claro atrás do celular */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute left-1/2 top-[260px] -z-10 h-[440px] w-[440px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(closest-side,rgba(47,164,242,0.20),rgba(30,90,232,0.07)_72%,transparent)] lg:left-[40%] lg:top-1/2 lg:h-[540px] lg:w-[540px]"
+            />
+
+            <div className="flex flex-col items-center gap-10 lg:flex-row lg:items-center lg:justify-center lg:gap-7">
+              <div className="pointer-events-auto">
+                <PhoneMockup />
+              </div>
+
+              <ul data-hero-cards className="pointer-events-auto grid w-full gap-3 sm:grid-cols-3 lg:w-[236px] lg:grid-cols-1 lg:gap-4">
+                {HERO_CARDS.map((c) => (
+                  <li
+                    key={c.title}
+                    data-hero-card
+                    className="flex items-center gap-4 rounded-2xl border border-[#EDF2FB] bg-white/95 px-5 py-4 shadow-[0_14px_34px_-14px_rgba(11,27,58,0.22)] backdrop-blur"
+                  >
+                    <span className="shrink-0 text-[#1E5AE8]">{c.icon}</span>
+                    <span>
+                      <span className="block text-[15px] font-bold text-[#0B1B3A]">{c.title}</span>
+                      <span className="block text-[13.5px] text-[#55647E]">{c.sub}</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <p
+              data-hero-handwritten
+              className="pointer-events-auto mt-6 text-center font-accent text-[30px] leading-[1.05] text-[#1E5AE8] lg:absolute lg:-bottom-8 lg:right-0 lg:mt-0 lg:-rotate-[16deg] lg:text-left lg:text-[34px]"
+            >
+              Cuidando <br className="hidden lg:block" />de você, <br className="hidden lg:block" />sempre.
+              <svg aria-hidden className="mx-auto mt-1 block h-3 w-40 lg:ml-6" viewBox="0 0 160 12" fill="none">
+                <path d="M2 9C40 3 100 1 158 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </p>
+          </motion.div>
+        </div>
+
+        <motion.ul
+          data-hero-strip
           variants={stagger}
           initial="hidden"
           animate="show"
-          className="mx-auto flex max-w-[760px] flex-col items-center text-center"
+          className="pointer-events-auto mt-14 grid gap-6 sm:grid-cols-3 sm:gap-0 lg:mt-16"
         >
-          <motion.span
-            variants={fadeUp}
-            className="inline-flex items-center gap-2 rounded-full border border-[#D6E3FB] bg-white px-4 py-2 text-[13px] font-semibold text-[#1E5AE8] shadow-sm"
-          >
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#10B981] opacity-75" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-[#10B981]" />
-            </span>
-            Médicos online agora
-          </motion.span>
-
-          <motion.h1
-            variants={fadeUp}
-            className="mt-6 text-[40px] font-bold leading-[1.08] tracking-[-0.03em] text-[#0B1B3A] sm:text-[54px] lg:text-[62px]"
-          >
-            Consulta médica{" "}
-            <span className="font-serif italic text-[#1E5AE8]">em minutos</span>,
-            <br className="hidden sm:block" /> sem sair de casa.
-          </motion.h1>
-
-          <motion.p
-            variants={fadeUp}
-            className="mt-6 max-w-[560px] text-[17px] leading-relaxed text-[#55647E]"
-          >
-            Pague <strong className="font-semibold text-[#0B1B3A]">R$ 39,90</strong>, entre na
-            fila virtual e fale por vídeo com um médico de CRM ativo. Receita digital, atestado
-            e pedido de exames chegam direto no seu celular.
-          </motion.p>
-
-          <motion.div variants={fadeUp} className="mt-8 flex flex-wrap items-center justify-center gap-4">
-            <Link
-              href="/login"
-              className="group inline-flex items-center gap-2.5 rounded-full bg-[#1E5AE8] px-7 py-4 text-[15.5px] font-semibold text-white shadow-[0_8px_24px_rgba(30,90,232,0.4)] transition hover:-translate-y-0.5 hover:bg-[#1748C9] hover:shadow-[0_12px_32px_rgba(30,90,232,0.5)]"
+          {HERO_STRIP.map((s, i) => (
+            <motion.li
+              key={s.title}
+              variants={fadeUp}
+              className={`flex items-center gap-4 sm:justify-center sm:px-4 ${i > 0 ? "sm:border-l sm:border-[#E3EBFA]" : ""}`}
             >
-              Iniciar consulta — R$ 39,90
-              <span className="transition-transform group-hover:translate-x-1">
-                <Arrow />
+              <span className="flex h-[54px] w-[54px] shrink-0 items-center justify-center rounded-full bg-[#EAF1FF] text-[#1E5AE8]">
+                {s.icon}
               </span>
-            </Link>
-            <a
-              href="#como-funciona"
-              className="inline-flex items-center gap-2 rounded-full border border-[#D6E3FB] bg-white px-6 py-4 text-[15px] font-semibold text-[#0B1B3A] transition hover:border-[#1E5AE8] hover:text-[#1E5AE8]"
-            >
-              Como funciona
-            </a>
-          </motion.div>
-
-          <motion.div variants={fadeUp} className="mt-8 flex flex-wrap justify-center gap-2.5">
-            {["CRM ativo", "Receita digital válida", "LGPD · CFM"].map((t) => (
-              <span
-                key={t}
-                className="inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-2 text-[12.5px] font-semibold text-[#3B4A66] shadow-[0_1px_3px_rgba(11,27,58,0.08)] ring-1 ring-[#E6ECF8]"
-              >
-                <Check className="text-[#1E5AE8]" /> {t}
+              <span>
+                <span className="block text-[15.5px] font-bold text-[#0B1B3A]">{s.title}</span>
+                <span className="block text-[13.5px] text-[#55647E]">{s.sub}</span>
               </span>
-            ))}
-          </motion.div>
-        </motion.div>
+            </motion.li>
+          ))}
+        </motion.ul>
       </div>
     </section>
   );
@@ -644,91 +856,6 @@ const TESTIMONIALS: Testimonial[] = [
   },
 ];
 
-/* Avatares de perfil GENÉRICOS — ilustração flat (não são fotos de pessoas
-   reais). Estilo determinístico pelo nome → estável no loop do marquee. */
-type AvatarStyle = {
-  bg: string;
-  skin: string;
-  hair: string;
-  clothes: string;
-  kind: "short" | "round" | "long" | "bun";
-};
-
-const AVATAR_STYLES: AvatarStyle[] = [
-  { bg: "#DCE9FF", skin: "#F3CBA6", hair: "#2B2320", clothes: "#3B5BA5", kind: "short" },
-  { bg: "#ECE6FF", skin: "#C68A5E", hair: "#12100E", clothes: "#8C5B9E", kind: "long" },
-  { bg: "#D8F1E8", skin: "#DDA579", hair: "#5C3A22", clothes: "#2F8F6B", kind: "bun" },
-  { bg: "#FFE8DA", skin: "#F3CBA6", hair: "#7A5230", clothes: "#C46A6A", kind: "long" },
-  { bg: "#E2F0FF", skin: "#9C6B45", hair: "#12100E", clothes: "#4A6FA5", kind: "short" },
-  { bg: "#FCE1EC", skin: "#DDA579", hair: "#2B2320", clothes: "#5B6B8C", kind: "bun" },
-  { bg: "#E8ECF5", skin: "#C68A5E", hair: "#5C3A22", clothes: "#3B5BA5", kind: "round" },
-  { bg: "#DDEEFF", skin: "#7A4E30", hair: "#12100E", clothes: "#2F8F6B", kind: "long" },
-];
-
-function avatarStyle(name: string): AvatarStyle {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h + name.charCodeAt(i)) % 997;
-  return AVATAR_STYLES[h % AVATAR_STYLES.length];
-}
-
-function PersonAvatar({ name }: { name: string }) {
-  const s = avatarStyle(name);
-  const hairR = s.kind === "short" ? 12.4 : 13;
-  const hairCy = s.kind === "short" ? 26.5 : 27;
-  return (
-    <svg viewBox="0 0 64 64" className="h-full w-full" aria-hidden>
-      <rect width="64" height="64" fill={s.bg} />
-      {s.kind === "long" && (
-        <g fill={s.hair}>
-          <rect x="17.5" y="26" width="6" height="18" rx="3" />
-          <rect x="40.5" y="26" width="6" height="18" rx="3" />
-        </g>
-      )}
-      <path d="M8 64C8 47 20 45 32 45s24 2 24 19Z" fill={s.clothes} />
-      <circle cx="32" cy={hairCy} r={hairR} fill={s.hair} />
-      <circle cx="32" cy="31" r="11.6" fill={s.skin} />
-      {s.kind === "bun" && <circle cx="32" cy="12.5" r="4.5" fill={s.hair} />}
-    </svg>
-  );
-}
-
-/* Fotos de perfil (placeholder). São retratos de banco (randomuser.me), NÃO de
-   clientes reais desta plataforma. ⚠️ ANTES DO LANÇAMENTO, substituir por fotos
-   e depoimentos de clientes reais que autorizaram o uso — publicar depoimento
-   fictício com foto de pessoa não relacionada engana o paciente. Se a imagem
-   não carregar (offline/CSP), cai no avatar ilustrado <PersonAvatar />. */
-const PHOTO_BY_NAME: Record<string, string> = {
-  "Marina T.": "https://randomuser.me/api/portraits/women/68.jpg",
-  "Rafael Andrade": "https://randomuser.me/api/portraits/men/32.jpg",
-  "Cláudia Nogueira": "https://randomuser.me/api/portraits/women/65.jpg",
-  "Patrícia L.": "https://randomuser.me/api/portraits/women/12.jpg",
-  "Diego Farias": "https://randomuser.me/api/portraits/men/75.jpg",
-  "Henrique B.": "https://randomuser.me/api/portraits/men/51.jpg",
-  "Aline Souza": "https://randomuser.me/api/portraits/women/90.jpg",
-  "Vinícius M.": "https://randomuser.me/api/portraits/men/44.jpg",
-};
-
-function AvatarPhoto({ name }: { name: string }) {
-  const [failed, setFailed] = useState(false);
-  const photo = PHOTO_BY_NAME[name];
-  return (
-    <span className="h-11 w-11 shrink-0 overflow-hidden rounded-full ring-1 ring-[#E6ECF8]">
-      {photo && !failed ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={photo}
-          alt=""
-          loading="lazy"
-          onError={() => setFailed(true)}
-          className="h-full w-full object-cover"
-        />
-      ) : (
-        <PersonAvatar name={name} />
-      )}
-    </span>
-  );
-}
-
 /* nota em estrelas com suporte a meia-estrela (via overlay recortado) */
 function Stars({ value }: { value: number }) {
   const pct = Math.max(0, Math.min(100, (value / 5) * 100));
@@ -1050,6 +1177,7 @@ function Footer() {
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-white font-sans antialiased [font-family:var(--font-dm-sans),'Helvetica_Neue',system-ui,sans-serif]">
+      <InstallBar />
       <Nav />
       <main>
         <Hero />
