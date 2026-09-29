@@ -3107,6 +3107,32 @@ body {
 .chart-pres-link:hover { background: var(--blue-l); border-color: var(--blue); }
 .chart-pres-link--off { color: var(--txt3); cursor: not-allowed; }
 
+/* Anamnese rápida: templates do admin (prontuario_templates) */
+.chart-tpl { margin-bottom: 18px; }
+.chart-tpl-list { display: grid; gap: 8px; }
+.chart-tpl-card {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
+  border: 1px solid var(--hborder);
+  background: white;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.chart-tpl-info { min-width: 0; display: grid; gap: 4px; justify-items: start; }
+.chart-tpl-nome { font-size: 12px; font-weight: 600; color: var(--txt); }
+.chart-tpl-esp { font-size: 11px; color: var(--txt2); }
+.chart-tpl-anexo { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chart-tpl-apply {
+  flex-shrink: 0;
+  padding: 5px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--blue);
+  background: var(--blue-l); color: var(--blue-d);
+  font-family: inherit; font-size: 12px; font-weight: 600;
+  cursor: pointer;
+}
+.chart-tpl-apply:hover { background: var(--blue); color: white; }
+.chart-tpl-apply:disabled { opacity: 0.5; cursor: not-allowed; background: var(--bg3); border-color: var(--hborder); color: var(--txt3); }
+
 /* ─── Modal base (admin) ──────────────────────────────────── */
 .modal-shell {
   /* Centralizar: alguns navegadores não aplicam margin auto por padrão

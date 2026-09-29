@@ -11,6 +11,11 @@ import {
 } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useDebouncedCallback } from "@/hooks/useDebouncedCallback";
+import {
+  aplicarTemplate,
+  type ContextoTemplate,
+  type TemplateAplicavel,
+} from "@/lib/prontuario/aplicarTemplate";
 
 export type ChartPanelHandle = {
   /** Persiste imediatamente prontuário + anamnese, ignorando debounce.
@@ -42,6 +47,17 @@ type Consultation = {
   id: string;
   patient_id: string;
   doctor_id: string | null;
+  chief_complaint: string | null;
+  started_at: string | null;
+};
+
+/** Linha de prontuario_templates listada na aba "Anamnese rápida". */
+type TemplateRapido = TemplateAplicavel & {
+  id: string;
+  nome: string;
+  especialidade: string | null;
+  attachment_path: string | null;
+  attachment_name: string | null;
 };
 
 type Prontuario = {
@@ -118,8 +134,16 @@ function fmtDate(iso?: string | null): string {
   }
 }
 
-const ChartPanel = forwardRef<ChartPanelHandle, { consultationId?: string | null }>(
-  function ChartPanel({ consultationId }, ref) {
+type ChartPanelProps = {
+  consultationId?: string | null;
+  /** Nome do médico logado — vira {{medico}} ao aplicar template. */
+  doctorNome?: string | null;
+  /** doctors.primary_specialty — vira {{especialidade}}. */
+  doctorEspecialidade?: string | null;
+};
+
+const ChartPanel = forwardRef<ChartPanelHandle, ChartPanelProps>(
+  function ChartPanel({ consultationId, doctorNome, doctorEspecialidade }, ref) {
   const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
   if (!supabaseRef.current) {
     try {
@@ -167,7 +191,7 @@ const ChartPanel = forwardRef<ChartPanelHandle, { consultationId?: string | null
     (async () => {
       const { data: c } = await sb
         .from("consultations")
-        .select("id, patient_id, doctor_id")
+        .select("id, patient_id, doctor_id, chief_complaint, started_at")
         .eq("id", consultationId)
         .maybeSingle();
       if (cancelled) return;
@@ -263,6 +287,31 @@ const ChartPanel = forwardRef<ChartPanelHandle, { consultationId?: string | null
     if (!c) return;
     if (prontuario.cid10_codes.includes(c)) return;
     patchProntuario({ cid10_codes: [...prontuario.cid10_codes, c] });
+  }
+  // ── Aplicar template (aba Anamnese rápida → Prontuário) ──
+  // Acrescenta, nunca apaga: ver aplicarTemplate. O autosave debounced grava.
+  function applyTemplate(t: TemplateRapido) {
+    if (!consultation?.doctor_id) return;
+    const ctx: ContextoTemplate = {
+      paciente: {
+        full_name: patient?.full_name ?? null,
+        birth_date: patient?.birth_date ?? null,
+        cpf: patient?.cpf ?? null,
+      },
+      medico: { nome: doctorNome ?? null, especialidade: doctorEspecialidade ?? null },
+      consulta: {
+        chief_complaint: consultation.chief_complaint,
+        started_at: consultation.started_at,
+      },
+      agora: new Date(),
+    };
+    setProntuario((prev) => {
+      const next = aplicarTemplate(prev, t, ctx);
+      prontuarioDirtyRef.current = true;
+      debouncedSaveProntuario(next);
+      return next;
+    });
+    setTab("prontuario");
   }
   function removeCid(code: string) {
     patchProntuario({
@@ -386,6 +435,13 @@ const ChartPanel = forwardRef<ChartPanelHandle, { consultationId?: string | null
           <Historico
             patientId={consultation.patient_id}
             currentConsultationId={consultation.id}
+          />
+        )}
+
+        {tab === "anamnese" && (
+          <TemplatesRapidos
+            canApply={!!consultation?.doctor_id}
+            onApply={applyTemplate}
           />
         )}
 
@@ -588,6 +644,117 @@ function ProntuarioForm({
         />
       </div>
     </>
+  );
+}
+
+// ─── Aba Anamnese: templates do admin (prontuario_templates) ──
+// Busca a cada abertura da aba (o componente monta de novo), então criar,
+// editar ou inativar no /admin/templates reflete sem deploy nem reload.
+function TemplatesRapidos({
+  canApply,
+  onApply,
+}: {
+  canApply: boolean;
+  onApply: (t: TemplateRapido) => void;
+}) {
+  const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
+  if (!supabaseRef.current) {
+    try {
+      supabaseRef.current = createClient();
+    } catch {
+      /* noop */
+    }
+  }
+  const [items, setItems] = useState<TemplateRapido[] | null>(null);
+  const [anexoUrls, setAnexoUrls] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const sb = supabaseRef.current;
+    if (!sb) {
+      setItems([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await sb
+        .from("prontuario_templates")
+        .select(
+          "id, nome, especialidade, chief_complaint_template, history_present_illness_template, physical_exam_template, diagnostic_hypothesis_template, conduct_template, cid10_suggested, attachment_path, attachment_name",
+        )
+        .eq("ativo", true)
+        .order("nome", { ascending: true });
+      if (cancelled) return;
+      if (error) console.error("[ChartPanel] templates:", error);
+      const collator = new Intl.Collator("pt-BR", { sensitivity: "base" });
+      const lista = ((error ? [] : data ?? []) as TemplateRapido[]).sort((a, b) =>
+        collator.compare(a.nome ?? "", b.nome ?? ""),
+      );
+      setItems(lista);
+
+      // URL assinada (1h) pros anexos — mesmo padrão dos PDFs do Histórico.
+      const urls: Record<string, string> = {};
+      await Promise.all(
+        lista
+          .filter((t) => t.attachment_path)
+          .map(async (t) => {
+            const { data: signed } = await sb.storage
+              .from("template-attachments")
+              .createSignedUrl(t.attachment_path as string, 3600);
+            if (signed?.signedUrl) urls[t.id] = signed.signedUrl;
+          }),
+      );
+      if (!cancelled) setAnexoUrls(urls);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return (
+    <div className="chart-section chart-tpl">
+      <div className="chart-section-label">
+        Templates {items ? `(${items.length})` : ""}
+      </div>
+      {items === null && <div className="chart-empty-soft">Carregando…</div>}
+      {items?.length === 0 && (
+        <div className="chart-empty">Nenhum template disponível.</div>
+      )}
+      <div className="chart-tpl-list">
+        {items?.map((t) => (
+          <div key={t.id} className="chart-tpl-card" data-template-id={t.id}>
+            <div className="chart-tpl-info">
+              <div className="chart-tpl-nome">{t.nome}</div>
+              {t.especialidade?.trim() && (
+                <div className="chart-tpl-esp">{t.especialidade}</div>
+              )}
+              {anexoUrls[t.id] && (
+                <a
+                  href={anexoUrls[t.id]}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="chart-pres-link chart-tpl-anexo"
+                >
+                  📎 {t.attachment_name ?? "anexo"}
+                </a>
+              )}
+            </div>
+            <button
+              type="button"
+              className="chart-tpl-apply"
+              disabled={!canApply}
+              title={
+                canApply
+                  ? "Preenche o Prontuário (acrescenta ao texto existente)"
+                  : "Disponível somente durante o atendimento"
+              }
+              onClick={() => onApply(t)}
+            >
+              Aplicar
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
