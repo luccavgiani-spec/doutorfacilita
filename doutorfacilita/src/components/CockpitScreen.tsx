@@ -19,11 +19,14 @@ import { Logo } from "@/components/Logo";
 export default function CockpitScreen({
   consultationId,
   doctorNome,
+  doctorEspecialidade,
   doctorSub,
   doctorAvatarUrl,
 }: {
   consultationId?: string;
   doctorNome: string;
+  /** doctors.primary_specialty — vira {{especialidade}} nos templates. */
+  doctorEspecialidade?: string | null;
   doctorSub: string;
   doctorAvatarUrl?: string | null;
 }) {
@@ -335,7 +338,12 @@ export default function CockpitScreen({
       {/* (mais estreita). Dados reais por paciente + autosave  */}
       {/* em medical_records (CFM 1.821/2007).                  */}
       {/* ═══════════════════════════════════════════════════ */}
-      <ChartPanel ref={chartRef} consultationId={effectiveConsultationId} />
+      <ChartPanel
+        ref={chartRef}
+        consultationId={effectiveConsultationId}
+        doctorNome={doctorNome}
+        doctorEspecialidade={doctorEspecialidade ?? null}
+      />
     </div>
   );
 }

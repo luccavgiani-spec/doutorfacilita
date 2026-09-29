@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import {
   type StructuredField,
   type TemplatePayload,
@@ -8,6 +8,8 @@ import {
   updateTemplate,
 } from "@/app/admin/templates/actions";
 import { createClient } from "@/lib/supabase/client";
+// Variáveis suportadas — fonte única, substituídas no cockpit ao aplicar.
+import { TEMPLATE_VARS } from "@/lib/prontuario/aplicarTemplate";
 
 const input =
   "w-full rounded-lg border border-border bg-white px-3 py-2 text-sm outline-none focus:border-blue focus:ring-2 focus:ring-blue/15";
@@ -28,18 +30,6 @@ const EMPTY: TemplatePayload = {
   attachment_mime: null,
 };
 
-// Variáveis suportadas — substituídas no cockpit ao aplicar o template.
-const TEMPLATE_VARS: Array<{ key: string; desc: string }> = [
-  { key: "nome_paciente", desc: "Nome completo do paciente" },
-  { key: "primeiro_nome", desc: "Primeiro nome do paciente" },
-  { key: "idade", desc: "Idade calculada da data de nascimento" },
-  { key: "cpf", desc: "CPF mascarado (000.000.000-00)" },
-  { key: "data", desc: "Data do atendimento (DD/MM/AAAA)" },
-  { key: "hora", desc: "Hora do atendimento (HH:MM)" },
-  { key: "medico", desc: "Nome do médico atendendo" },
-  { key: "especialidade", desc: "Especialidade do médico" },
-  { key: "queixa", desc: "Queixa principal informada" },
-];
 
 export default function TemplateEditor({
   id,
@@ -55,25 +45,28 @@ export default function TemplateEditor({
   const [uploading, setUploading] = useState(false);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
 
-  // Cria URL assinada (1h) pra baixar o anexo já salvo
-  async function refreshDownloadUrl() {
-    if (!t.attachment_path) {
-      setDownloadUrl(null);
-      return;
-    }
-    try {
-      const sb = createClient();
-      const { data } = await sb.storage
-        .from("template-attachments")
-        .createSignedUrl(t.attachment_path, 3600);
-      setDownloadUrl(data?.signedUrl ?? null);
-    } catch {
-      setDownloadUrl(null);
-    }
-  }
-  if (t.attachment_path && downloadUrl === null) {
-    void refreshDownloadUrl();
-  }
+  // Cria URL assinada (1h) pra baixar o anexo — num efeito, não no render
+  // (no render o setState rodava antes do mount e era descartado).
+  const attachmentPath = t.attachment_path;
+  useEffect(() => {
+    setDownloadUrl(null);
+    if (!attachmentPath) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const sb = createClient();
+        const { data } = await sb.storage
+          .from("template-attachments")
+          .createSignedUrl(attachmentPath, 3600);
+        if (!cancelled) setDownloadUrl(data?.signedUrl ?? null);
+      } catch {
+        if (!cancelled) setDownloadUrl(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [attachmentPath]);
 
   async function handleUpload(file: File) {
     setUploading(true);

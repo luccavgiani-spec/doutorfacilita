@@ -22,7 +22,7 @@ Sources:
 
 ## Landing
 
-Toca `src/components/cockpit/ChartPanel.tsx` (lista na aba "Anamnese rápida" + aplicar), `src/components/CockpitScreen.tsx` e `src/app/cockpit/page.tsx` (repassam nome/especialidade do médico), `src/components/admin/TemplateEditor.tsx` (passa a importar `TEMPLATE_VARS` do módulo novo). Reusa o autosave (`patchProntuario` → upsert `medical_records`) e o padrão de URL assinada do `HistoricoDrawer`.
+Toca `src/components/cockpit/ChartPanel.tsx` (lista na aba "Anamnese rápida" + aplicar), `src/components/CockpitScreen.tsx` e `src/app/cockpit/page.tsx` (repassam nome/especialidade do médico), `src/components/admin/TemplateEditor.tsx` (passa a importar `TEMPLATE_VARS` do módulo novo; a URL assinada do "abrir" sai do render para um `useEffect` - o harness pegou `console.error` "state update on a component that hasn't mounted", setState no render era descartado). Reusa o autosave (`patchProntuario` → upsert `medical_records`) e o padrão de URL assinada do `HistoricoDrawer`.
 
 | One-way door | Literal shape | Alternative rejected |
 | --- | --- | --- |
@@ -69,7 +69,9 @@ Proof: `node e2e/cockpit-templates.mjs` → `PASS C8 …`
 
 ## Harness
 
-`e2e/cockpit-templates.mjs` fica no scratchpad da sessão (`…/scratchpad/e2e/`), não no repo: roda contra o banco de **produção** via dev server local `:3102`. Ele cria um template de teste `AAA TESTE AUTOMATIZADO <ts>` com anexo, e ao fim remove o anexo e exclui o template pelo próprio admin. Toda escrita no Supabase fora de `prontuario_templates`/`template-attachments` é **bloqueada**; o upsert de `medical_records` é interceptado e respondido localmente (o teste lê o corpo da requisição, nada grava no prontuário real). Consultas usadas (conta de teste, só leitura): `dbd01aeb…` (com `doctor_id`) e `e63cb386…` (sem `doctor_id`).
+`e2e/cockpit-templates.mjs` (Playwright) fica no scratchpad da sessão (`C:\Users\lucca\AppData\Local\Temp\claude\C--Users-lucca-projetos-plantao-digital-plantao-digital\db6397ac-dd20-40c2-b4ab-b483d06fa710\scratchpad\e2e\`), não no repo: roda contra o banco de **produção** via dev server local `:3102`. Ele cria um template de teste `AAA TESTE AUTOMATIZADO <ts>` com anexo, e ao fim remove o anexo e exclui o template pelo próprio admin. Toda escrita no Supabase fora de `prontuario_templates`/`template-attachments` é **bloqueada**; o upsert de `medical_records` é interceptado e respondido localmente (o teste lê o corpo da requisição, nada grava no prontuário real). Consultas usadas (conta de teste, só leitura): `dbd01aeb…` (com `doctor_id`) e `e63cb386…` (sem `doctor_id`). A remoção do anexo é conferida pedindo uma **nova** assinatura (a URL assinada antiga continua 200 pelo cache da CDN, `cacheControl: 3600`). Pré-requisito: `npx next dev -p 3102` em `doutorfacilita/` com `.env.local`.
+
+Última execução (2026-09-29, HEAD da feature): `ALL PASS`, 0 escritas do browser bloqueadas, 1 upsert de `medical_records` interceptado; `npm test` 23/23; `npm run type-check` e `npm run build` limpos.
 
 ## Swept
 
