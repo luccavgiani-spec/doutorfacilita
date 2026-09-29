@@ -45,22 +45,14 @@ export function urlRetornoRecuperacao(origin: string): string {
   return `${origin}/auth/confirm?next=${DESTINO_REDEFINIR}`;
 }
 
+/** Destinos que `?next=` de /auth/confirm pode pedir (lista fechada). */
+const DESTINOS_PERMITIDOS: readonly string[] = [DESTINO_REDEFINIR];
+
 /**
- * Aceita só caminho relativo do próprio site ("/x"); qualquer outra coisa
- * (URL absoluta, "//host", "/\host", "/<TAB>/host"…) cai no destino padrão.
- * Evita open redirect via `?next=` em /auth/confirm. Resolve com o mesmo
- * parser de URL do navegador (que descarta TAB/CR/LF e trata "\" como "/")
- * e exige que a origem não mude.
+ * Lista fechada em vez de sanitizar caminho: qualquer valor fora dela cai no
+ * destino padrão. Sanitizar deixava bypasses de open redirect ("/<TAB>/host",
+ * "/.//host" → "//host"); comparação exata não tem esse espaço.
  */
 export function destinoSeguro(next: string | null | undefined): string {
-  if (!next || !next.startsWith("/")) return DESTINO_REDEFINIR;
-  const base = "http://destino.invalid";
-  let url: URL;
-  try {
-    url = new URL(next, base);
-  } catch {
-    return DESTINO_REDEFINIR;
-  }
-  if (url.origin !== base) return DESTINO_REDEFINIR;
-  return url.pathname + url.search + url.hash;
+  return next && DESTINOS_PERMITIDOS.includes(next) ? next : DESTINO_REDEFINIR;
 }

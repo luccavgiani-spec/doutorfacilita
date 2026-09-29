@@ -1,9 +1,62 @@
 # A — Admin e autenticação: verificação
 
-**Verdict**: FAIL (1 correção pequena exigida: bypass do `destinoSeguro`; o resto está provado ou é limite declarado)
+**Verdict**: FAIL (round 2: o fix do `destinoSeguro` fechou TAB/LF/backslash, mas abriu um bypass novo por dot-segment: `/.//evil.example` agora vira `//evil.example`)
 **Profile**: light (passo 1 de ui, a junção Coverage/Test policy e a injeção de faltas não rodaram, como manda o profile)
-**Diff range**: 7fa7347..e8b41fa (HEAD de `fix/admin-auth-recuperacao-senha`)
-**Round**: 1, completo
+**Diff range**: 7fa7347..b74d57a (round 2 escopado ao fix `e8b41fa..b74d57a`)
+**Round**: 2, escopado (round 1 completo em e8b41fa)
+
+## Round 2 — verified at b74d57a
+
+Escopo: o diff `e8b41fa..b74d57a` (`src/lib/auth/recuperacaoSenha.ts` `destinoSeguro` + o teste no scratchpad), os veredictos que não eram PASS (C5, C12, C13) e as superfícies tocadas (C11, C12 e C14 passam por `/auth/confirm`). O resto é **carried from e8b41fa**.
+
+### Provas reexecutadas no HEAD b74d57a
+
+- `npm run type-check` → `tsc --noEmit` exit 0
+- `node --import ./ts-resolve.mjs --test recuperacao.test.mjs` → 10 passed, 0 failed. Os 10 nomes aparecem individualmente, inclusive `destinoSeguro recusa open redirect`, que agora também cobre TAB (`:68`), LF (`:69`), `%09` literal (`:70`) e `/\/` (`:71`)
+- `node verifier-redirect.mjs` (13 payloads, cada um resolvido contra `https://www.meuplantaodigital.com/auth/confirm`):
+
+| `next` (já decodificado) | `destinoSeguro` | Resolve para | Fora do site |
+|---|---|---|---|
+| `/\t/evil.example` | `/redefinir-senha` | próprio site | não (**lacuna 1 do round 1 fechada**) |
+| `/\n/evil.example` | `/redefinir-senha` | próprio site | não |
+| `/\evil.example`, `/\/evil.example`, `//evil.example` | `/redefinir-senha` | próprio site | não |
+| `/.//evil.example` | `//evil.example` | `https://evil.example/` | **sim** |
+| `/..//evil.example` | `//evil.example` | `https://evil.example/` | **sim** |
+| `/a/..//evil.example` | `//evil.example` | `https://evil.example/` | **sim** |
+| `/%2e//evil.example` | `//evil.example` | `https://evil.example/` | **sim** |
+| `/%2F/evil.example`, `/ /evil.example` | mantém o path codificado | próprio site | não |
+| `/redefinir-senha?x=1#h` | igual | próprio site | não |
+
+### Finding do round 2 (bloqueante): regressão introduzida pelo fix
+
+Em `src/lib/auth/recuperacaoSenha.ts:56-65` (`new URL(next, base)` … `return url.pathname + url.search + url.hash`), o parser WHATWG normaliza os dot-segments. `/.//evil.example` fica com pathname `//evil.example`, a origem continua `http://destino.invalid` e a checagem `url.origin !== base` passa. O valor devolvido vai no `Location` (`auth/confirm/route.ts:34,44`) e o navegador o lê como URL protocol-relative, ou seja, `https://evil.example/`.
+
+No código do round 1 esse mesmo input voltava intacto (`/.//evil.example`) e resolvia **dentro** do site. A reserialização é o que cria o bypass. O alcance é o mesmo da lacuna 1: só depois de um `exchangeCodeForSession` bem-sucedido.
+
+O teste (`recuperacao.test.mjs:62-73`) não tem caso com dot-segment, e por isso fica verde.
+
+Fix mínimo: depois de normalizar, recusar resultado que comece com `//` (ou `/\`), por exemplo `const out = url.pathname + url.search + url.hash; if (out.startsWith("//")) return DESTINO_REDEFINIR;`. Acrescentar ao teste `/.//evil.example`, `/..//evil.example` e `/%2e//evil.example`.
+
+### Veredictos reavaliados
+
+| Check | Round 1 | Round 2 | Nota |
+|---|---|---|---|
+| C5 | PARCIAL | PARCIAL (carried from e8b41fa) | o fix não toca; o login das 3 contas continua não testável |
+| C11 | PASS | PASS (verified at b74d57a) | os testes C11 passaram de novo; `urlRetornoRecuperacao` não mudou |
+| C12 | PARCIAL | PARCIAL (verified at b74d57a) | o ramo `?code=` agora devolve `url.pathname+search+hash` (normalizado). O `next` legítimo `/redefinir-senha` sai igual (teste `:63`). O runtime continua só do autor, e o ramo `?code=` válido segue sem teste de ponta a ponta |
+| C13 | PARCIAL | PARCIAL (carried from e8b41fa) | o fix não toca |
+| C14 | PASS | PASS (verified at b74d57a) | `route.ts:37` (`?erro=link`) não mudou; o fix só atua no sucesso do `?code=` |
+| demais (C1-C4, C6-C10, C15, C16) | PASS | PASS (carried from e8b41fa) | fora do diff do fix; C15/C16 também passaram de novo nos testes puros |
+
+**Contagem round 2**: 13 PASS, 3 PARCIAL, 0 FAIL de check. Continua 1 finding bloqueante, agora o de dot-segment no lugar do de TAB.
+
+### Lacuna 2 (/redefinir-senha aceita qualquer sessão) — risco aceito pelo autor, pendente de decisão do Lucca
+
+O autor decidiu não mudar. O argumento dele: o `updateUser` do supabase-js já troca a senha com qualquer sessão válida, então a página não amplia a exposição. O verificador concorda que a superfície de API já existe. A lacuna de precisão contra o critério 12 ("sessão de recuperação") continua registrada, e **a decisão é do Lucca**: aceitar, checar `amr=recovery` ou ligar "Secure password change".
+
+---
+
+## Round 1 — carried from e8b41fa (texto original abaixo)
 **Verifier**: sub-agente independente (autor != verificador), só leitura. Todo SQL no prod `tylpojscdbkzulykdguv` foi leitura ou bloco `DO` que termina em `RAISE EXCEPTION 'ROLLBACK …'`
 
 ## Binding sources
@@ -38,7 +91,7 @@
 
 ## Findings fora da tabela
 
-1. **Open redirect no `?next=` de `/auth/confirm` (bloqueante, correção pequena).** `src/lib/auth/recuperacaoSenha.ts:53-56` só recusa `//` e `/\`. O valor `?next=/%09/evil.example` decodifica para `"/\t/evil.example"` e passa. `new Headers({Location})` aceita o TAB, e o parser de URL do navegador remove o TAB e resolve para `https://evil.example/`. Prova: `scratchpad/verifier-redirect.mjs` → `{"in":"/\t/evil.example","destino":"/\t/evil.example","resolvido":"https://evil.example/","hdr":"ok"}`. Com `\n` o `Headers` recusa (daria 500, não redirect). O alcance é restrito, porque só roda depois de `exchangeCodeForSession` bem-sucedido (`route.ts:33-34`), e isso exige o code verifier no navegador da vítima. Ainda assim o contrato do Landing ("só caminho relativo `/x`") não é cumprido, e o teste `destinoSeguro recusa open redirect` (`recuperacao.test.mjs:62-68`) não cobre caracteres de controle. Fix sugerido: rejeitar `[\x00-\x1F\\]` em `next`, ou normalizar com `new URL(next, "http://x")` e exigir `host === "x"`, com um caso de TAB no teste.
+1. *(Round 2: o caso TAB foi fechado em b74d57a, e o fix abriu o bypass por dot-segment descrito acima.)* **Open redirect no `?next=` de `/auth/confirm` (bloqueante, correção pequena).** `src/lib/auth/recuperacaoSenha.ts:53-56` só recusa `//` e `/\`. O valor `?next=/%09/evil.example` decodifica para `"/\t/evil.example"` e passa. `new Headers({Location})` aceita o TAB, e o parser de URL do navegador remove o TAB e resolve para `https://evil.example/`. Prova: `scratchpad/verifier-redirect.mjs` → `{"in":"/\t/evil.example","destino":"/\t/evil.example","resolvido":"https://evil.example/","hdr":"ok"}`. Com `\n` o `Headers` recusa (daria 500, não redirect). O alcance é restrito, porque só roda depois de `exchangeCodeForSession` bem-sucedido (`route.ts:33-34`), e isso exige o code verifier no navegador da vítima. Ainda assim o contrato do Landing ("só caminho relativo `/x`") não é cumprido, e o teste `destinoSeguro recusa open redirect` (`recuperacao.test.mjs:62-68`) não cobre caracteres de controle. Fix sugerido: rejeitar `[\x00-\x1F\\]` em `next`, ou normalizar com `new URL(next, "http://x")` e exigir `host === "x"`, com um caso de TAB no teste.
 2. **`/redefinir-senha` aceita qualquer sessão, não só a de recuperação** (`redefinir-senha/page.tsx:26` testa só `!user`). Um usuário logado normalmente (ou uma sessão roubada) troca a senha sem a atual. O critério 12 fala em "sessão de recuperação", então há uma lacuna de precisão. Risco médio-baixo. Mitigações: checar `amr` com `recovery` no JWT, ou ligar "Secure password change" no Supabase.
 3. **As provas puras ficam fora do repo** (`recuperacao.test.mjs` e `ts-resolve.mjs` no scratchpad da sessão). Somem com a sessão e não protegem regressão futura (não há test runner no repo).
 4. **Dependência de config (Unresolved 1):** o `redirectTo` usa `window.location.origin` (`EsqueciSenhaForm.tsx:25`). Se o usuário estiver num host fora da allowlist (ex.: apex sem `www`), o Supabase cai no Site URL raiz e o `?code=` chega em `/`, onde ninguém o trata. Isso é para o go-live, não é bug do diff.
