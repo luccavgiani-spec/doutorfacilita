@@ -92,39 +92,10 @@ const SEALS = [
   { label: "Receita digital válida", icon: <IconDoc size={22} /> },
 ];
 
-function PlusShape({ className }: { className: string }) {
-  return (
-    <svg className={className} viewBox="0 0 40 40" aria-hidden>
-      <path d="M15 4h10v11h11v10H25v11H15V25H4V15h11z" fill="currentColor" />
-    </svg>
-  );
-}
-
 function MarketingColumn() {
   return (
-    <section data-login-marketing className="relative hidden min-h-[660px] lg:block">
-      {/* foto da médica (quadro do vídeo da hero) sobre círculo azul */}
-      <div data-login-photo className="pointer-events-none absolute right-[-40px] top-[236px] h-[240px] w-[240px] xl:right-[-64px] xl:top-[150px] xl:h-[350px] xl:w-[350px]">
-        <div aria-hidden className="absolute inset-0 rounded-full bg-gradient-to-br from-[#2FA4F2] via-[#1E5AE8] to-[#123FBF]" />
-        <div aria-hidden className="absolute -inset-10 -z-10 rounded-full bg-[radial-gradient(closest-side,rgba(47,164,242,0.22),transparent)]" />
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/assets/login-medica.webp"
-          alt="Médica do Plantão Digital sorrindo"
-          className="absolute inset-[10px] h-[calc(100%-20px)] w-[calc(100%-20px)] rounded-full object-cover object-[50%_20%] ring-4 ring-white/80 xl:inset-[14px] xl:h-[calc(100%-28px)] xl:w-[calc(100%-28px)]"
-        />
-        <PlusShape className="absolute -left-4 top-2 h-8 w-8 text-[#BBD2FA]" />
-        <PlusShape className="absolute -bottom-6 right-16 h-12 w-12 text-[#D6E4FC] xl:right-24" />
-        <p className="absolute -top-[74px] left-[28px] -rotate-[14deg] whitespace-nowrap font-accent text-[26px] leading-[1.05] text-[#1E5AE8] xl:left-[48px] xl:text-[28px]">
-          Sua saúde <br />
-          em boas mãos
-          <svg aria-hidden className="ml-8 mt-0.5 block h-2.5 w-28" viewBox="0 0 112 10" fill="none">
-            <path d="M2 8C30 3 70 1 110 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-          </svg>
-        </p>
-      </div>
-
-      <div className="relative z-10 max-w-[280px] pt-8 xl:max-w-[320px]">
+    <section data-login-marketing className="relative hidden lg:block">
+      <div className="relative z-10 max-w-[440px]">
         <p className="text-[12px] font-semibold uppercase tracking-[0.22em] text-[#55647E]">
           SAÚDE SEM COMPLICAÇÃO
         </p>
