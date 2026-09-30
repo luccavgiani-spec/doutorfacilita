@@ -14,63 +14,30 @@ export interface RegistroProfissional {
   Numero: string; // "345678"
 }
 
-/** Bloco Profissional do payload de iniciar prescrição. */
-export interface MevoProfissional {
-  Nome: string;
-  Documento: string; // CPF do médico (só dígitos)
-  Email: string;
-  RegistroProfissional: RegistroProfissional;
-  Especialidade?: string;
-  ReferenciaExterna: string; // doctors.id — idempotência/identificação do médico
-}
-
-/**
- * Endereço estruturado do paciente (a modal Mevo pré-preenche os campos a
- * partir deste objeto). A doc v1 lista `Paciente.Endereco` como string; por
- * isso a Edge Function tenta o objeto e, em 412 citando Endereco, refaz com a
- * string `endereco_completo`.
- */
+/** Payload conforme exemplo de iniciar fornecido pela Mevo. */
 export interface MevoEnderecoEstruturado {
-  Endereco1: string; // logradouro + número
-  Endereco2?: string; // complemento
-  Bairro: string;
-  Cidade: string;
-  Estado: string; // UF
-  CodigoPostal: string; // CEP (só dígitos)
+  Endereco1: string; Endereco2?: string; Bairro?: string; Cidade?: string; Estado?: string; CodigoPostal?: string;
 }
-
-/** Bloco Paciente do payload de iniciar prescrição. */
+export interface MevoMedico {
+  Nome: string; Documento: string; TipoDocumento: "CPF"; Email: string;
+  ReferenciaExterna: string; TelefoneCelular?: string; Especialidades?: string[];
+  Endereco?: MevoEnderecoEstruturado;
+  RegistroProfissional: RegistroProfissional;
+}
 export interface MevoPaciente {
-  Nome: string;
-  Documento: string; // CPF do paciente (só dígitos)
-  DataNascimento?: string; // ISO yyyy-mm-dd
-  DataDeNascimento?: string; // experimento: variante do nome do campo de DOB
-  Celular?: string; // DDD+numero, ex: 11991420955
-  Email?: string;
-  Endereco?: string | MevoEnderecoEstruturado;
-  Alergias?: string[];
-  ReferenciaExterna?: string; // patients.id
+  Nome: string; Documento: string; ReferenciaExterna?: string;
+  Nascimento?: string; Sexo?: "F" | "M"; TelefoneCelular?: string; Email?: string;
+  Alergias?: string[]; Endereco?: MevoEnderecoEstruturado;
 }
-
-/** Estabelecimento de saúde (Plantão Digital). */
 export interface MevoEstabelecimento {
-  Nome: string;
-  Documento?: string; // CNPJ, se exigido
+  Nome: string; CNES?: string; Endereco?: MevoEnderecoEstruturado; Contato?: { TelefoneComercial: string };
 }
-
-/** Payload de POST /api/prescricao/iniciar. */
 export interface MevoIniciarPayload {
-  SubParceiro: string;
-  Profissional: MevoProfissional;
-  Paciente: MevoPaciente;
-  Estabelecimento?: MevoEstabelecimento;
-  CertificadoDigitalObrigatorio: boolean; // true — exige assinatura digital
-  PermitirImpressao: boolean; // false — só digital
-  CorPrimaria?: string;
-  CorSecundaria?: string;
-  LogoURL?: string;
-  ReferenciaExterna?: string; // consultation_id local
-  RegistroProntuarioEletronico: { ReferenciaExterna: string }; // obrigatório (fora da doc v1.42)
+  Medico: MevoMedico; Paciente: MevoPaciente; Estabelecimento?: MevoEstabelecimento;
+  SubParceiro: string; CorPrimaria?: string; CorSecundaria?: string; LogoURL?: string;
+  ReferenciaExterna: string;
+  RegistroProntuarioEletronico: { ReferenciaExterna: string; TipoConsulta: "Teleconsulta" };
+  CertificadoDigitalObrigatorio: boolean; PermitirImpressao: boolean;
 }
 
 /**

@@ -22,12 +22,14 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { json, preflight, resolveDoctor } from "../_shared/http.ts";
-import { normalizarCelularBR, pick } from "../_shared/mevo-utils.ts";
+import { pick } from "../_shared/mevo-utils.ts";
 import type {
   MevoErroValidacao,
-  MevoIniciarPayload,
   MevoRespostaIniciar,
 } from "../_shared/mevo-types.ts";
+
+import { montarPayloadMevo } from "../_shared/mevo-payload.ts";
+import type { MevoIniciarPayload } from "../_shared/mevo-types.ts";
 
 const onlyDigits = (v: string | null | undefined) =>
   (v ?? "").replace(/\D/g, "");
@@ -106,7 +108,7 @@ Deno.serve(async (req) => {
   const { data: patient, error: patientErr } = await admin
     .from("patients")
     .select(
-      "id, full_name, cpf, birth_date, celular, phone, email, endereco_completo, alergias, address_line, address_complement, neighborhood, city, state, postal_code",
+      "id, full_name, cpf, birth_date, celular, phone, email, endereco_completo, alergias, allergies, gender, address_number, address_line, address_complement, neighborhood, city, state, postal_code",
     )
     .eq("id", consultation.patient_id)
     .maybeSingle();
@@ -143,53 +145,12 @@ Deno.serve(async (req) => {
   }
 
   // ─── Monta payload ──────────────────────────────────────────────
-  const payload: MevoIniciarPayload = {
-    SubParceiro: Deno.env.get("MEVO_SUBPARCEIRO") ?? "PLANTAO_DIGITAL",
-    Profissional: {
-      Nome: doctor.full_name,
-      Documento: onlyDigits(doctor.cpf),
-      Email: doctor.email ?? authEmail ?? "",
-      RegistroProfissional: {
-        Conselho: doctor.council ?? "CRM",
-        UF: doctor.council_state,
-        Numero: doctor.council_number,
-      },
-      Especialidade: doctor.primary_specialty ?? undefined,
-      ReferenciaExterna: doctor.id,
-    },
-    Paciente: {
-      Nome: patient.full_name,
-      Documento: onlyDigits(patient.cpf),
-      DataNascimento: patient.birth_date ?? undefined,
-      // Experimento (5.5): manda também a variante DataDeNascimento. Se a Mevo
-      // recusar com 412 citando data, o retry abaixo remove ambas e loga.
-      DataDeNascimento: patient.birth_date ?? undefined,
-      Celular: normalizarCelularBR(patient.celular || patient.phone),
-      Email: patient.email ?? undefined,
-      // Endereço ESTRUTURADO (5.3) — a modal pré-preenche os campos a partir do
-      // objeto. Fallback p/ string `endereco_completo` no retry se der 412.
-      Endereco: {
-        Endereco1: patient.address_line ?? "",
-        Endereco2: patient.address_complement || undefined,
-        Bairro: patient.neighborhood ?? "",
-        Cidade: patient.city ?? "",
-        Estado: (patient.state ?? "").trim(),
-        CodigoPostal: onlyDigits(patient.postal_code),
-      },
-      Alergias: Array.isArray(patient.alergias) && patient.alergias.length > 0
-        ? patient.alergias
-        : undefined,
-      ReferenciaExterna: patient.id,
-    },
-    Estabelecimento: { Nome: "Plantão Digital" },
-    CertificadoDigitalObrigatorio: true,
-    PermitirImpressao: false,
-    CorPrimaria: Deno.env.get("MEVO_COR_PRIMARIA") ?? undefined,
-    CorSecundaria: Deno.env.get("MEVO_COR_SECUNDARIA") ?? undefined,
-    LogoURL: Deno.env.get("MEVO_LOGO_URL") || undefined,
-    ReferenciaExterna: consultationId,
-    RegistroProntuarioEletronico: { ReferenciaExterna: consultationId },
-  };
+  const payload = montarPayloadMevo(doctor, patient, consultationId, authEmail, {
+    subparceiro: Deno.env.get("MEVO_SUBPARCEIRO"),
+    logo_url: Deno.env.get("MEVO_LOGO_URL"),
+    cor_primaria: Deno.env.get("MEVO_COR_PRIMARIA"),
+    cor_secundaria: Deno.env.get("MEVO_COR_SECUNDARIA"),
+  });
 
   // ─── Chama a Mevo ───────────────────────────────────────────────
   const url = `${baseUrl.replace(/\/+$/, "")}/api/prescricao/iniciar`;
@@ -224,47 +185,8 @@ Deno.serve(async (req) => {
     );
   }
 
-  // 412 → array [{Entidade, Campo, Descricao}]. Estes campos (Endereco objeto +
-  // DataDeNascimento) são experimentos contra a doc; em 412 citando-os, refaz
-  // UMA vez com o formato seguro e loga o 412 — emissão nunca trava por isto.
-  let erros412: MevoErroValidacao[] = [];
-  if (mevoResp.status === 412) {
-    erros412 = await parseErros(mevoResp);
-    console.error("[mevo-iniciar] 412 (tentativa 1):", JSON.stringify(erros412));
-
-    const txt = JSON.stringify(erros412).toLowerCase();
-    const ajustarEndereco = txt.includes("endere");
-    const ajustarData = /(data|nasc)/.test(txt);
-
-    if (ajustarEndereco || ajustarData) {
-      const retry: MevoIniciarPayload = {
-        ...payload,
-        Paciente: { ...payload.Paciente },
-      };
-      if (ajustarEndereco) {
-        retry.Paciente.Endereco = patient.endereco_completo ?? undefined;
-      }
-      if (ajustarData) {
-        delete retry.Paciente.DataNascimento;
-        delete retry.Paciente.DataDeNascimento;
-      }
-      try {
-        mevoResp = await chamarMevo(retry);
-      } catch (e) {
-        return json(
-          { error: "mevo_unreachable", detail: e instanceof Error ? e.message : String(e) },
-          502,
-        );
-      }
-      erros412 = mevoResp.status === 412 ? await parseErros(mevoResp) : [];
-      if (mevoResp.status === 412) {
-        console.error("[mevo-iniciar] 412 (tentativa 2, formato seguro):", JSON.stringify(erros412));
-      }
-    }
-  }
-
-  // Se ainda 412 após o retry (ou 412 sem campo conhecido pra ajustar), devolve
-  // o erro de validação legível.
+  // Não descartar dados demográficos para contornar uma validação Mevo.
+  const erros412 = mevoResp.status === 412 ? await parseErros(mevoResp) : [];
   if (mevoResp.status === 412) {
     const legivel = erros412
       .map((e) => [e.Entidade, e.Campo, e.Descricao].filter(Boolean).join(" · "))

@@ -63,7 +63,7 @@ export async function resolveDoctor(req: Request, createClient: any) {
   const { data: doctor, error: doctorErr } = await admin
     .from("doctors")
     .select(
-      "id, user_id, full_name, cpf, email, phone, council, council_state, council_number, council_active, primary_specialty, is_active",
+      "id, user_id, full_name, cpf, email, phone, council, council_state, council_number, council_active, primary_specialty, specialties, endereco, establishment_name, establishment_cnes, establishment_address, establishment_phone, is_active",
     )
     .eq("user_id", authUserId)
     .maybeSingle();
