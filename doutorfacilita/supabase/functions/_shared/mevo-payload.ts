@@ -45,7 +45,7 @@ export function montarPayloadMevo(doctor: Row, patient: Row, consultationId: str
     Estabelecimento: {
       Nome: text(branding.establishment_name) ?? text(doctor.establishment_name) ?? "Plantão Digital",
       CNPJ: digits(branding.establishment_cnpj) ?? "",
-      CNES: digits(branding.establishment_cnes) ?? digits(doctor.establishment_cnes) ?? "",
+      CNES: text(branding.establishment_cnes) ?? text(doctor.establishment_cnes) ?? "",
       Logo: text(branding.establishment_logo) ?? text(branding.logo_url) ?? "",
       Endereco: enderecoPaciente({ address_line: text(branding.establishment_address_line) ?? text(doctor.establishment_address), address_complement: branding.establishment_address_complement, neighborhood: branding.establishment_neighborhood, city: branding.establishment_city, state: branding.establishment_state, postal_code: branding.establishment_postal_code }),
       Contato: { TelefoneComercial: normalizarCelularBR(text(branding.establishment_phone) ?? text(doctor.establishment_phone)) ?? "" },
@@ -69,6 +69,7 @@ export function validarPayloadMevo(payload: MevoIniciarPayload): string[] {
   required("Estabelecimento.Logo", payload.Estabelecimento?.Logo);
   required("Estabelecimento.Contato.TelefoneComercial", payload.Estabelecimento?.Contato?.TelefoneComercial);
   if (payload.Estabelecimento?.CNPJ && !/^\d{14}$/.test(payload.Estabelecimento.CNPJ)) missing.push("Estabelecimento.CNPJ (14 dígitos)");
-  if (payload.Estabelecimento?.CNES && !/^\d{7}$/.test(payload.Estabelecimento.CNES)) missing.push("Estabelecimento.CNES (7 dígitos)");
+  // Mevo confirmed the literal "Telemedicina" for this establishment on 2026-09-30.
+  if (payload.Estabelecimento?.CNES && payload.Estabelecimento.CNES !== "Telemedicina" && !/^\d{7}$/.test(payload.Estabelecimento.CNES)) missing.push("Estabelecimento.CNES (7 dígitos ou Telemedicina)");
   return missing;
 }
