@@ -16,7 +16,7 @@ export interface RegistroProfissional {
 
 /** Payload conforme exemplo de iniciar fornecido pela Mevo. */
 export interface MevoEnderecoEstruturado {
-  Endereco1: string; Endereco2?: string; Bairro?: string; Cidade?: string; Estado?: string; CodigoPostal?: string;
+  Endereco1: string; Endereco2: string; Bairro: string; Cidade: string; Estado: string; CodigoPostal: string;
 }
 export interface MevoMedico {
   Nome: string; Documento: string; TipoDocumento: "CPF"; Email: string;
@@ -25,12 +25,12 @@ export interface MevoMedico {
   RegistroProfissional: RegistroProfissional;
 }
 export interface MevoPaciente {
-  Nome: string; Documento: string; ReferenciaExterna?: string;
+  Nome: string; NomeSocial: string; Documento: string; ReferenciaExterna?: string;
   Nascimento?: string; Sexo?: "F" | "M"; TelefoneCelular?: string; Email?: string;
   Alergias?: string[]; Endereco?: MevoEnderecoEstruturado;
 }
 export interface MevoEstabelecimento {
-  Nome: string; CNES?: string; Endereco?: MevoEnderecoEstruturado; Contato?: { TelefoneComercial: string };
+  Nome: string; CNPJ: string; Logo: string; CNES: string; Endereco?: MevoEnderecoEstruturado; Contato?: { TelefoneComercial: string };
 }
 export interface MevoIniciarPayload {
   Medico: MevoMedico; Paciente: MevoPaciente; Estabelecimento?: MevoEstabelecimento;

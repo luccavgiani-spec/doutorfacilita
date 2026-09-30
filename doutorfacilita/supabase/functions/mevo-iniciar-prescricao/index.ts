@@ -28,7 +28,7 @@ import type {
   MevoRespostaIniciar,
 } from "../_shared/mevo-types.ts";
 
-import { montarPayloadMevo } from "../_shared/mevo-payload.ts";
+import { montarPayloadMevo, validarPayloadMevo } from "../_shared/mevo-payload.ts";
 import type { MevoIniciarPayload } from "../_shared/mevo-types.ts";
 
 const onlyDigits = (v: string | null | undefined) =>
@@ -108,7 +108,7 @@ Deno.serve(async (req) => {
   const { data: patient, error: patientErr } = await admin
     .from("patients")
     .select(
-      "id, full_name, cpf, birth_date, celular, phone, email, endereco_completo, alergias, allergies, gender, address_number, address_line, address_complement, neighborhood, city, state, postal_code",
+      "id, full_name, cpf, birth_date, celular, phone, email, endereco_completo, alergias, allergies, gender, social_name, address_number, address_line, address_complement, neighborhood, city, state, postal_code",
     )
     .eq("id", consultation.patient_id)
     .maybeSingle();
@@ -145,12 +145,18 @@ Deno.serve(async (req) => {
   }
 
   // ─── Monta payload ──────────────────────────────────────────────
+  const { data: configRow, error: configError } = await admin.from("integration_configs").select("config").eq("id", "mevo").maybeSingle();
+  if (configError) return json({ error: "mevo_config_lookup_failed" }, 500);
   const payload = montarPayloadMevo(doctor, patient, consultationId, authEmail, {
     subparceiro: Deno.env.get("MEVO_SUBPARCEIRO"),
     logo_url: Deno.env.get("MEVO_LOGO_URL"),
     cor_primaria: Deno.env.get("MEVO_COR_PRIMARIA"),
     cor_secundaria: Deno.env.get("MEVO_COR_SECUNDARIA"),
+    ...(configRow?.config ?? {}),
   });
+
+  const missing = validarPayloadMevo(payload);
+  if (missing.length) return json({ error: "dados_incompletos", message: "Complete o endereço profissional no Perfil e os dados do estabelecimento em Admin > Mevo: " + missing.join(", "), faltantes: missing }, 422);
 
   // ─── Chama a Mevo ───────────────────────────────────────────────
   const url = `${baseUrl.replace(/\/+$/, "")}/api/prescricao/iniciar`;

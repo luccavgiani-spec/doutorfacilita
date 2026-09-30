@@ -18,7 +18,7 @@ export default async function Page() {
   const { data } = await supabase
     .from("doctors")
     .select(
-      "full_name, council_number, council_state, primary_specialty, cpf, phone, endereco, bio"
+      "full_name, council_number, council_state, primary_specialty, cpf, phone, endereco, bio, address_line, address_complement, neighborhood, city, state, postal_code"
     )
     .eq("user_id", user.id)
     .maybeSingle();
@@ -33,6 +33,13 @@ export default async function Page() {
         telefone: data.phone ?? "",
         endereco: data.endereco ?? "",
         bio: data.bio ?? "",
+        address_line: data.address_line ?? "",
+        address_complement: data.address_complement ?? "",
+        neighborhood: data.neighborhood ?? "",
+        city: data.city ?? "",
+        state: data.state ?? "",
+        postal_code: data.postal_code ?? "",
+
       }
     : PERFIL_VAZIO;
 

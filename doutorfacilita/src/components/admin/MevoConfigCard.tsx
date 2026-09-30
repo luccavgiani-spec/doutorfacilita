@@ -62,6 +62,18 @@ export default function MevoConfigCard({ inicial }: { inicial: MevoConfig }) {
           <Cor label="Cor secundária" v={cfg.cor_secundaria} on={(v) => set("cor_secundaria", v)} />
         </div>
 
+        <h3 className="text-sm font-bold">Estabelecimento responsável pela emissão</h3>
+<Texto label="Nome do estabelecimento" v={cfg.establishment_name} on={(v) => set("establishment_name", v)} />
+<Texto label="CNPJ do estabelecimento" v={cfg.establishment_cnpj} on={(v) => set("establishment_cnpj", v)} />
+<Texto label="CNES do estabelecimento" v={cfg.establishment_cnes} on={(v) => set("establishment_cnes", v)} />
+<Texto label="Logo do estabelecimento (URL)" v={cfg.establishment_logo} on={(v) => set("establishment_logo", v)} />
+<Texto label="Telefone do estabelecimento" v={cfg.establishment_phone} on={(v) => set("establishment_phone", v)} />
+<Texto label="Logradouro e número do estabelecimento" v={cfg.establishment_address_line} on={(v) => set("establishment_address_line", v)} />
+<Texto label="Complemento do estabelecimento (opcional)" v={cfg.establishment_address_complement} on={(v) => set("establishment_address_complement", v)} />
+<Texto label="Bairro do estabelecimento" v={cfg.establishment_neighborhood} on={(v) => set("establishment_neighborhood", v)} />
+<Texto label="Cidade do estabelecimento" v={cfg.establishment_city} on={(v) => set("establishment_city", v)} />
+<Texto label="UF do estabelecimento" v={cfg.establishment_state} on={(v) => set("establishment_state", v)} />
+<Texto label="CEP do estabelecimento" v={cfg.establishment_postal_code} on={(v) => set("establishment_postal_code", v)} />
         <Toggle label="Certificado digital obrigatório" v={cfg.certificado_obrigatorio} on={(b) => set("certificado_obrigatorio", b)} />
         <Toggle label="Permitir impressão" v={cfg.permitir_impressao} on={(b) => set("permitir_impressao", b)} />
         <Toggle label="Exibir e-mail para envio" v={cfg.exibir_email} on={(b) => set("exibir_email", b)} />

@@ -43,6 +43,7 @@ export default function PatientEditForm({
         <Field label="Nome completo">
           <input className={input} value={p.full_name} onChange={(e) => set("full_name", e.target.value)} />
         </Field>
+        <Field label="Nome social (opcional)"><input className={input} value={p.social_name ?? ""} onChange={(e) => set("social_name", e.target.value)} /></Field>
         <Field label="CPF (não editável)">
           <input className={`${input} cursor-not-allowed bg-bg-3 text-txt-3`} value={cpf} disabled readOnly />
         </Field>

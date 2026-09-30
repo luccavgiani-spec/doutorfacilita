@@ -6,11 +6,12 @@ import { logAdminAction } from "@/lib/admin/audit";
 
 export type PatientEdit = {
   full_name: string;
+  social_name?: string;
   email: string;
   phone: string;
   celular: string;
   endereco_completo: string;
-  // Endereço estruturado (fonte do payer.address do Mercado Pago).
+  // EndereÃ§o estruturado (fonte do payer.address do Mercado Pago).
   address_line: string;
   address_number: string;
   address_complement: string;
@@ -19,7 +20,7 @@ export type PatientEdit = {
   state: string;
   postal_code: string;
   alergias: string[];
-  // CPF e birth_date NÃO editáveis aqui (regra do plano: CPF travado).
+  // CPF e birth_date NÃƒO editÃ¡veis aqui (regra do plano: CPF travado).
 };
 
 export async function updatePatient(
@@ -31,6 +32,7 @@ export async function updatePatient(
     .from("patients")
     .update({
       full_name: p.full_name,
+      social_name: p.social_name?.trim() || null,
       email: p.email || null,
       phone: p.phone || null,
       celular: p.celular || null,

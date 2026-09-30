@@ -1,9 +1,9 @@
-# Payload Mevo — 30/09/2026
+# Mevo — contrato obrigatório confirmado pelo parceiro (30/09/2026)
 
-Contrato alinhado ao exemplo `Mevo JSON de Iniciar.json` fornecido pelo proprietário. `Medico`, `Especialidades[]`, `TipoDocumento: CPF`, `Paciente.Nascimento` em AAAA/MM/DD, `TelefoneCelular` e `RegistroProntuarioEletronico.TipoConsulta: Teleconsulta` substituem as variantes experimentais anteriores.
+A ausência de chaves apontada pelo parceiro foi corrigida: endereço do médico com seis chaves, Paciente.NomeSocial e Endereco2, Estabelecimento.CNPJ/CNES/Logo/Contato/Endereco. Complemento e nome social ausentes são strings vazias explícitas; documentos e endereços não são inventados.
 
-CPF/telefone/CEP normalizados, especialidades e alergias consolidadas, número do endereço incluído sem duplicação. Endereço do médico e estabelecimento são enviados como Endereco1 a partir dos textos existentes; não há fonte para separar bairro/cidade/CEP desses textos. Campos sem fonte (CNS, CNPJ, nome social, etnia, peso, altura, CID) são omitidos. Diagnósticos e conteúdo da receita são decisões do médico dentro da Mevo.
+Migration acrescenta endereço estruturado a doctors e social_name a patients. Médico preenche Perfil; admin edita nome social do paciente e dados do estabelecimento em Admin > Mevo. A função lê configuração não secreta do banco e conserva credenciais no servidor. Configuração jurídica IPV fornecida pelo usuário aplicada ao banco, com logo pública do Plantão Digital (HTTP 200).
 
-Preservados autenticação do médico, titularidade da consulta, estado in_progress, assinatura digital obrigatória, resposta ModalURL/token e persistência. Removido retry que apagava nascimento/endereço em erro 412; erro de validação deve ser corrigido, não escondido. Nenhuma nova coluna/migration é necessária: campos usados já existem no banco produtivo.
+Validação anterior ao envio retorna 422 com caminhos ausentes, mantendo autenticação, ownership e consulta em andamento. CNES IPV e endereço profissional permanecem pendentes; não copiar endereço da empresa para médico sem confirmação.
 
-17 verificações isoladas do contrato e TypeScript. Sem dados reais, chamada Mevo ou receita sintética. Validação final exige o médico iniciar e assinar a prescrição em consulta, retorno da Mevo e arquivamento dos documentos. Não presumir receita válida apenas porque /iniciar retornou uma sessão.
+Verificação: contrato depois de JSON.stringify, casos completo/incompleto/inválido, TypeScript app e builder, diff check. Não houve emissão remota com a nova versão; aceite da API e assinatura dependem de completar o cadastro e testar com médico autenticado. Não há fundamento para prometer 95% de sucesso end-to-end antes disso. Homologação não comprova produção.
