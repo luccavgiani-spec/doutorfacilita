@@ -7,3 +7,7 @@ Migration acrescenta endereço estruturado a doctors e social_name a patients. M
 Validação anterior ao envio retorna 422 com caminhos ausentes, mantendo autenticação, ownership e consulta em andamento. CNES IPV e endereço profissional permanecem pendentes; não copiar endereço da empresa para médico sem confirmação.
 
 Verificação: contrato depois de JSON.stringify, casos completo/incompleto/inválido, TypeScript app e builder, diff check. Não houve emissão remota com a nova versão; aceite da API e assinatura dependem de completar o cadastro e testar com médico autenticado. Não há fundamento para prometer 95% de sucesso end-to-end antes disso. Homologação não comprova produção.
+
+## CNES para telemedicina
+Em 2026-09-30, o usuário informou confirmação dos representantes Mevo para enviar CNES como a string literal Telemedicina. O builder preserva esse texto e o validador aceita esse literal ou um CNES numérico de sete dígitos. Configuração persistida e função v28 publicada. Teste local de serialização e validação passou; aceitação remota ainda depende da próxima prescrição autenticada.
+
