@@ -17,6 +17,18 @@ const DEFAULT_CFG: MevoConfig = {
   certificado_obrigatorio: true,
   permitir_impressao: false,
   exibir_email: false,
+  establishment_name: "",
+  establishment_cnpj: "",
+  establishment_cnes: "",
+  establishment_logo: "",
+  establishment_phone: "",
+  establishment_address_line: "",
+  establishment_address_complement: "",
+  establishment_neighborhood: "",
+  establishment_city: "",
+  establishment_state: "",
+  establishment_postal_code: "",
+
 };
 
 export default async function MevoPage() {

@@ -6,6 +6,7 @@ import { logAdminAction } from "@/lib/admin/audit";
 
 export type PatientEdit = {
   full_name: string;
+  social_name?: string;
   email: string;
   phone: string;
   celular: string;
@@ -31,6 +32,7 @@ export async function updatePatient(
     .from("patients")
     .update({
       full_name: p.full_name,
+      social_name: p.social_name?.trim() || null,
       email: p.email || null,
       phone: p.phone || null,
       celular: p.celular || null,

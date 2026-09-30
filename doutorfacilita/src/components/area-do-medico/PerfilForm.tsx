@@ -21,6 +21,13 @@ export interface PerfilData {
   telefone: string;
   endereco: string;
   bio: string;
+  address_line: string;
+  address_complement: string;
+  neighborhood: string;
+  city: string;
+  state: string;
+  postal_code: string;
+
 }
 
 export const PERFIL_VAZIO: PerfilData = {
@@ -32,6 +39,13 @@ export const PERFIL_VAZIO: PerfilData = {
   telefone: "",
   endereco: "",
   bio: "",
+  address_line: "",
+  address_complement: "",
+  neighborhood: "",
+  city: "",
+  state: "",
+  postal_code: "",
+
 };
 
 type Toast = { tipo: "ok" | "erro"; msg: string } | null;
@@ -120,6 +134,13 @@ export default function PerfilForm({
           phone: perfil.telefone,
           endereco: perfil.endereco,
           bio: perfil.bio,
+          address_line: perfil.address_line.trim(),
+          address_complement: perfil.address_complement.trim(),
+          neighborhood: perfil.neighborhood.trim(),
+          city: perfil.city.trim(),
+          state: perfil.state.trim(),
+          postal_code: perfil.postal_code.trim(),
+
           updated_at: new Date().toISOString(),
         })
         .eq("user_id", userId);
@@ -315,6 +336,12 @@ export default function PerfilForm({
                   placeholder="Rua, número, cidade/UF"
                 />
               </Campo>
+<Campo label="Logradouro e número profissional"><input className={inputCls} value={perfil.address_line} onChange={(e) => set("address_line", e.target.value)} /></Campo>
+<Campo label="Complemento profissional (opcional)"><input className={inputCls} value={perfil.address_complement} onChange={(e) => set("address_complement", e.target.value)} /></Campo>
+<Campo label="Bairro profissional"><input className={inputCls} value={perfil.neighborhood} onChange={(e) => set("neighborhood", e.target.value)} /></Campo>
+<Campo label="Cidade profissional"><input className={inputCls} value={perfil.city} onChange={(e) => set("city", e.target.value)} /></Campo>
+<Campo label="UF profissional"><input className={inputCls} value={perfil.state} onChange={(e) => set("state", e.target.value)} /></Campo>
+<Campo label="CEP profissional"><input className={inputCls} value={perfil.postal_code} onChange={(e) => set("postal_code", e.target.value)} /></Campo>
             </Secao>
 
             <div className="lg:col-span-2">

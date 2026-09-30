@@ -19,7 +19,7 @@ export default async function PacienteDetailPage({
   const { data: p } = await supabase
     .from("patients")
     .select(
-      "id, full_name, cpf, birth_date, gender, phone, celular, email, endereco_completo, address_line, address_number, address_complement, neighborhood, city, state, postal_code, alergias",
+      "id, full_name, social_name, cpf, birth_date, gender, phone, celular, email, endereco_completo, address_line, address_number, address_complement, neighborhood, city, state, postal_code, alergias",
     )
     .eq("id", id)
     .maybeSingle();
@@ -71,6 +71,7 @@ export default async function PacienteDetailPage({
         id={id}
         inicial={{
           full_name: p.full_name ?? "",
+          social_name: p.social_name ?? "",
           email: p.email ?? "",
           phone: p.phone ?? "",
           celular: p.celular ?? "",

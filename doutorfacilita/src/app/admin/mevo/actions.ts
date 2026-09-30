@@ -23,6 +23,18 @@ export type MevoConfig = {
   certificado_obrigatorio: boolean;
   permitir_impressao: boolean;
   exibir_email: boolean;
+  establishment_name: string;
+  establishment_cnpj: string;
+  establishment_cnes: string;
+  establishment_logo: string;
+  establishment_phone: string;
+  establishment_address_line: string;
+  establishment_address_complement: string;
+  establishment_neighborhood: string;
+  establishment_city: string;
+  establishment_state: string;
+  establishment_postal_code: string;
+
 };
 
 export async function saveMevoConfig(
@@ -47,6 +59,18 @@ export async function saveMevoConfig(
         certificado_obrigatorio: cfg.certificado_obrigatorio,
         permitir_impressao: cfg.permitir_impressao,
         exibir_email: cfg.exibir_email,
+        establishment_name: cfg.establishment_name.trim(),
+        establishment_cnpj: cfg.establishment_cnpj.trim(),
+        establishment_cnes: cfg.establishment_cnes.trim(),
+        establishment_logo: cfg.establishment_logo.trim(),
+        establishment_phone: cfg.establishment_phone.trim(),
+        establishment_address_line: cfg.establishment_address_line.trim(),
+        establishment_address_complement: cfg.establishment_address_complement.trim(),
+        establishment_neighborhood: cfg.establishment_neighborhood.trim(),
+        establishment_city: cfg.establishment_city.trim(),
+        establishment_state: cfg.establishment_state.trim(),
+        establishment_postal_code: cfg.establishment_postal_code.trim(),
+
       },
       updated_by: user.id,
     })
