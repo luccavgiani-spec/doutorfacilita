@@ -37,7 +37,6 @@ export interface MevoIniciarPayload {
   SubParceiro: string; CorPrimaria?: string; CorSecundaria?: string; LogoURL?: string;
   ReferenciaExterna: string;
   RegistroProntuarioEletronico: { ReferenciaExterna: string; TipoConsulta: "Teleconsulta" };
-  CertificadoDigitalObrigatorio: boolean; PermitirImpressao: boolean;
 }
 
 /**
