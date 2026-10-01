@@ -29,6 +29,8 @@ assert.equal(p.RegistroProntuarioEletronico.TipoConsulta,'Teleconsulta');
 assert.equal(nascimentoMevo('2026-02-30'),undefined);
 assert.equal(nascimentoMevo(''),undefined);
 assert.ok(!('Profissional' in p));
+assert.ok(!('PermitirImpressao' in p));
+assert.ok(!('CertificadoDigitalObrigatorio' in p));
 assert.ok(!('Celular' in p.Paciente));
 assert.ok(!('DataNascimento' in p.Paciente));
 assert.equal(p.Estabelecimento.CNPJ,'');

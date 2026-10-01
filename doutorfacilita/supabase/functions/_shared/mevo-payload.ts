@@ -51,7 +51,6 @@ export function montarPayloadMevo(doctor: Row, patient: Row, consultationId: str
       Contato: { TelefoneComercial: normalizarCelularBR(text(branding.establishment_phone) ?? text(doctor.establishment_phone)) ?? "" },
     },
     ReferenciaExterna: consultationId,
-    CertificadoDigitalObrigatorio: true, PermitirImpressao: false,
   };
 }
 
