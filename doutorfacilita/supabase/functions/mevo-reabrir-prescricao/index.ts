@@ -11,6 +11,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { json, preflight, resolveDoctor } from "../_shared/http.ts";
 import { pick } from "../_shared/mevo-utils.ts";
 import type { MevoRespostaIniciar } from "../_shared/mevo-types.ts";
+import { registrarEvento } from "../_shared/mevo-eventos.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return preflight();
@@ -47,7 +48,7 @@ Deno.serve(async (req) => {
 
   const { data: presc, error: prescErr } = await admin
     .from("prescricoes_mevo")
-    .select("id, doctor_id, mevo_id_prescricao, status")
+    .select("id, doctor_id, consultation_id, mevo_id_prescricao, status")
     .eq("id", prescricaoId)
     .maybeSingle();
 
@@ -65,12 +66,22 @@ Deno.serve(async (req) => {
     return json({ error: "prescricao_sem_id_mevo" }, 409);
   }
 
+  const url = `${baseUrl.replace(/\/+$/, "")}/api/prescricao/${
+    encodeURIComponent(presc.mevo_id_prescricao)
+  }/sessao`;
+  const evento = {
+    origem: "backend" as const,
+    evento: "POST /api/prescricao/{id}/sessao",
+    mevo_id_prescricao: presc.mevo_id_prescricao,
+    prescricao_id: presc.id,
+    consultation_id: presc.consultation_id,
+    doctor_id: presc.doctor_id,
+  };
+  const t0 = Date.now();
   let mevoResp: Response;
   try {
     mevoResp = await fetch(
-      `${baseUrl.replace(/\/+$/, "")}/api/prescricao/${
-        encodeURIComponent(presc.mevo_id_prescricao)
-      }/sessao`,
+      url,
       {
         method: "POST",
         headers: {
@@ -83,14 +94,21 @@ Deno.serve(async (req) => {
       },
     );
   } catch (e) {
-    return json(
-      { error: "mevo_unreachable", detail: e instanceof Error ? e.message : String(e) },
-      502,
-    );
+    const detail = e instanceof Error ? e.message : String(e);
+    await registrarEvento(admin, { ...evento, duracao_ms: Date.now() - t0, resumo: "Mevo inacessível: " + detail });
+    return json({ error: "mevo_unreachable", detail }, 502);
   }
+  const duracaoMs = Date.now() - t0;
 
   if (!mevoResp.ok) {
     const detail = await mevoResp.text().catch(() => "");
+    await registrarEvento(admin, {
+      ...evento,
+      http_status: mevoResp.status,
+      duracao_ms: duracaoMs,
+      resumo: `Erro da Mevo ao reabrir (HTTP ${mevoResp.status})`,
+      detalhe: { endpoint: url, resposta: detail.slice(0, 500) },
+    });
     return json(
       { error: "mevo_erro", status: mevoResp.status, detail: detail.slice(0, 1000) },
       502,
@@ -112,6 +130,14 @@ Deno.serve(async (req) => {
       502,
     );
   }
+
+  await registrarEvento(admin, {
+    ...evento,
+    http_status: mevoResp.status,
+    duracao_ms: duracaoMs,
+    resumo: "Nova sessão da prescrição aberta (terminar mais tarde)",
+    detalhe: { endpoint: url },
+  });
 
   return json({ modal_url: modalUrl, prescricao_id: presc.id });
 });

@@ -1,28 +1,30 @@
 // mevo-webhook — recebe eventos server-to-server da Mevo.
-//   EMISSION  -> baixa e arquiva os PDFs (caminho ROBUSTO, sem depender do
-//                browser/postMessage). Janela de 10 min: baixa na hora.
-//   CANCEL    -> marca a prescricao como cancelada.
-//   CANCELLED_DOCUMENT -> log duravel (refinamento futuro).
+//   EMISSION           -> baixa e arquiva os PDFs no prontuário na hora
+//                         (links da Mevo valem 24 h; caminho principal, não
+//                         depende do navegador do médico).
+//   CANCEL             -> marca a prescrição como cancelada.
+//   CANCELLED_DOCUMENT -> registra o evento com o payload sanitizado.
 //
 // Auth: postKey no header Authorization (valor exato combinado com a Mevo),
-// guardada no secret MEVO_WEBHOOK_POSTKEY. verify_jwt=false (a Mevo nao manda
+// guardada no secret MEVO_WEBHOOK_POSTKEY. verify_jwt=false (a Mevo não manda
 // JWT do Supabase).
 //
-// IMPORTANTE: responde HTTP 201 em sucesso. Se responder != 201 a Mevo
-// re-tenta de hora em hora — e ai os PDFs ja expiraram (10 min). Por isso
-// SEMPRE 201 depois de registrar a tentativa de forma duravel.
+// Responde HTTP 201 depois de registrar o evento de forma durável. Resposta
+// diferente faz a Mevo re-tentar de hora em hora.
 //
-// Discriminacao por formato do payload:
+// O evento vem declarado no payload quando a Mevo manda o campo; senão é
+// deduzido do formato:
 //   Documentos: Array  -> EMISSION
 //   Documentos: Object -> CANCELLED_DOCUMENT
-//   so idPrescricao    -> CANCEL
-//
-// Caminho no bucket (igual ao mevo-salvar-documentos):
-//   {doctor_id}/{prescricao_id}/{tipo}-{uuid}.pdf
+//   só idPrescricao    -> CANCEL
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { pick } from "../_shared/mevo-utils.ts";
+import { registrarEvento } from "../_shared/mevo-eventos.ts";
+import { arquivarDocumentos } from "../_shared/mevo-arquivo.ts";
 
-const BUCKET = "prescricoes-pdfs";
+const EVENTOS = ["EMISSION", "CANCEL", "CANCELLED_DOCUMENT"] as const;
+type EventoWebhook = (typeof EVENTOS)[number];
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -35,7 +37,7 @@ const json = (b: Record<string, unknown>, status = 200) =>
     headers: { ...cors, "Content-Type": "application/json" },
   });
 
-// comparacao de tempo constante para a postKey
+// comparação de tempo constante para a postKey
 function safeEqual(a: string, b: string): boolean {
   const ea = new TextEncoder().encode(a);
   const eb = new TextEncoder().encode(b);
@@ -45,44 +47,32 @@ function safeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
-const slug = (s: string) =>
-  (s || "DOC").toUpperCase().replace(/[^A-Z0-9]+/g, "_").slice(0, 24);
-
-async function baixarComRetry(url: string, tentativas = 2) {
-  let ultimoErro = "desconhecido";
-  for (let i = 0; i <= tentativas; i++) {
-    try {
-      const resp = await fetch(url, { signal: AbortSignal.timeout(30_000) });
-      if (!resp.ok) {
-        ultimoErro = `HTTP ${resp.status}`;
-        continue;
-      }
-      const buf = new Uint8Array(await resp.arrayBuffer());
-      if (buf.byteLength === 0) {
-        ultimoErro = "arquivo vazio";
-        continue;
-      }
-      const ct = resp.headers.get("content-type") ?? "application/pdf";
-      return { ok: true as const, bytes: buf, contentType: ct };
-    } catch (e) {
-      ultimoErro = e instanceof Error ? e.message : String(e);
-    }
+// deno-lint-ignore no-explicit-any
+function identificarEvento(body: any): EventoWebhook {
+  const declarado = pick(body, "Evento", "TipoEvento", "event", "type")?.toUpperCase();
+  if (declarado && (EVENTOS as readonly string[]).includes(declarado)) {
+    return declarado as EventoWebhook;
   }
-  return { ok: false as const, erro: ultimoErro };
+  const docs = body?.Documentos;
+  if (Array.isArray(docs)) return "EMISSION";
+  if (docs && typeof docs === "object") return "CANCELLED_DOCUMENT";
+  return "CANCEL";
 }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
-  // --- auth via postKey ---
   const expected = Deno.env.get("MEVO_WEBHOOK_POSTKEY");
   if (!expected) {
     console.error("[mevo-webhook] MEVO_WEBHOOK_POSTKEY ausente");
     return json({ error: "webhook_nao_configurado" }, 503);
   }
   const auth = req.headers.get("Authorization") ?? "";
-  if (!safeEqual(auth, expected)) return json({ error: "unauthorized" }, 401);
+  if (!safeEqual(auth, expected)) {
+    console.warn("[mevo-webhook] postKey inválida — requisição recusada");
+    return json({ error: "unauthorized" }, 401);
+  }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -102,206 +92,79 @@ Deno.serve(async (req) => {
       return json({ error: "invalid_json" }, 400);
     }
 
-    const idPrescricao = body?.idPrescricao != null
-      ? String(body.idPrescricao)
-      : null;
+    const evento = identificarEvento(body);
+    const idPrescricao = body?.idPrescricao != null ? String(body.idPrescricao) : null;
     if (!idPrescricao) {
-      console.warn("[mevo-webhook] payload sem idPrescricao");
+      await registrarEvento(admin, {
+        origem: "webhook",
+        evento,
+        http_status: 201,
+        resumo: "Payload sem idPrescricao — registrado e ignorado",
+        detalhe: body,
+      });
       return json({ recebido: true, aviso: "sem idPrescricao" }, 201);
     }
 
-    // localizar a prescricao pelo id da Mevo
     const { data: presc } = await admin
       .from("prescricoes_mevo")
-      .select("id, doctor_id, status")
+      .select("id, doctor_id, consultation_id, mevo_id_prescricao, finalizada_em, webhook_recebido_em")
       .eq("mevo_id_prescricao", idPrescricao)
       .maybeSingle();
 
-    const docs = body?.Documentos;
-    const isEmission = Array.isArray(docs);
-    const isCancelledDoc = docs && typeof docs === "object" &&
-      !Array.isArray(docs);
+    const ctx = {
+      mevo_id_prescricao: idPrescricao,
+      prescricao_id: presc?.id ?? null,
+      consultation_id: presc?.consultation_id ?? null,
+      doctor_id: presc?.doctor_id ?? null,
+    };
+    const docs = Array.isArray(body?.Documentos) ? body.Documentos : [];
 
-    // --- CANCEL (so idPrescricao) ---
-    if (!isEmission && !isCancelledDoc) {
-      if (presc) {
-        await admin.from("prescricoes_mevo")
-          .update({ status: "cancelada" })
-          .eq("id", presc.id);
-      }
-      console.log(
-        `[mevo-webhook] CANCEL idPrescricao=${idPrescricao} presc=${
-          presc?.id ?? "n/a"
-        }`,
-      );
-      return json({ recebido: true, evento: "CANCEL" }, 201);
-    }
+    const resumo = !presc
+      ? "Prescrição não encontrada no sistema — registrado"
+      : evento === "EMISSION"
+        ? `Receita finalizada · ${docs.length} documento(s) para arquivar`
+        : evento === "CANCEL"
+          ? "Prescrição cancelada na Mevo"
+          : "Documento cancelado na Mevo";
+    await registrarEvento(admin, {
+      ...ctx,
+      origem: "webhook",
+      evento,
+      http_status: 201,
+      resumo,
+      detalhe: body,
+    });
 
-    // --- CANCELLED_DOCUMENT (Documentos = objeto por tipo) ---
-    if (isCancelledDoc) {
-      console.log(
-        `[mevo-webhook] CANCELLED_DOCUMENT idPrescricao=${idPrescricao} presc=${
-          presc?.id ?? "n/a"
-        } docs=${JSON.stringify(docs)}`,
-      );
-      return json({ recebido: true, evento: "CANCELLED_DOCUMENT" }, 201);
-    }
-
-    // --- EMISSION ---
     if (!presc) {
-      console.warn(
-        `[mevo-webhook] EMISSION sem prescricao local idPrescricao=${idPrescricao}`,
-      );
-      return json(
-        {
-          recebido: true,
-          evento: "EMISSION",
-          aviso: "prescricao_local_nao_encontrada",
-        },
-        201,
-      );
+      return json({ recebido: true, evento, aviso: "prescricao_local_nao_encontrada" }, 201);
     }
 
-    // idempotencia vs mevo-salvar-documentos: pula tipos/categorias ja salvos
-    const { data: jaSalvos } = await admin
-      .from("prescricoes_documentos")
-      .select("tipo_documento, categoria")
-      .eq("prescricao_id", presc.id)
-      .not("download_succeeded_at", "is", null);
-    const capturado = new Set(
-      // deno-lint-ignore no-explicit-any
-      (jaSalvos ?? []).map((d: any) =>
-        `${d.tipo_documento}|${d.categoria ?? ""}`
-      ),
-    );
-
-    const allowedHosts = (Deno.env.get("MEVO_PDF_ALLOWED_HOSTS") ??
-      ".amazonaws.com,.nexodata.com.br")
-      .split(",").map((h) => h.trim().toLowerCase()).filter(Boolean);
-    const hostPermitido = (urlStr: string): boolean => {
-      let host: string;
-      try {
-        host = new URL(urlStr).hostname.toLowerCase();
-      } catch {
-        return false;
-      }
-      return allowedHosts.some((suf) => {
-        const s = suf.startsWith(".") ? suf : "." + suf;
-        return host === suf.replace(/^\./, "") || host.endsWith(s);
-      });
-    };
-
-    // deno-lint-ignore no-explicit-any
-    const registrar = async (
-      tipo: string,
-      // deno-lint-ignore no-explicit-any
-      doc: any,
-      storagePath: string | null,
-      contentType: string,
-      erro: string | null,
-    ) => {
-      const agora = new Date().toISOString();
-      return await admin.from("prescricoes_documentos").insert({
-        prescricao_id: presc.id,
-        tipo_documento: tipo,
-        categoria: doc?.Categoria ?? null,
-        storage_path: storagePath,
-        assinado: doc?.Assinado ?? false,
-        content_type: contentType,
-        mevo_original_url: doc?.URL ?? null,
-        download_attempted_at: agora,
-        download_succeeded_at: erro ? null : agora,
-        download_error: erro,
-      });
-    };
-
-    const falhas: Array<{ tipo: string; erro: string }> = [];
-    let salvos = 0;
-    let pulados = 0;
-
-    for (const doc of docs) {
-      const tipo = doc?.TipoDocumento ?? "DOC";
-      const ctFallback = doc?.ContentType || "application/pdf";
-      const chave = `${tipo}|${doc?.Categoria ?? ""}`;
-
-      if (capturado.has(chave)) {
-        pulados++;
-        continue;
-      }
-      if (!doc?.URL) {
-        await registrar(tipo, doc, null, ctFallback, "documento sem URL");
-        falhas.push({ tipo, erro: "documento sem URL" });
-        continue;
-      }
-      if (!hostPermitido(doc.URL)) {
-        let host = "";
-        try {
-          host = new URL(doc.URL).hostname;
-        } catch { /* url invalida */ }
-        const motivo = `host nao permitido: ${host || doc.URL}`;
-        await registrar(tipo, doc, null, ctFallback, motivo);
-        falhas.push({ tipo, erro: motivo });
-        continue;
-      }
-      const baixado = await baixarComRetry(doc.URL, 2);
-      if (!baixado.ok) {
-        const motivo = `download falhou: ${baixado.erro}`;
-        await registrar(tipo, doc, null, ctFallback, motivo);
-        falhas.push({ tipo, erro: motivo });
-        continue;
-      }
-      const storagePath = `${presc.doctor_id}/${presc.id}/${
-        slug(tipo)
-      }-${crypto.randomUUID()}.pdf`;
-      const contentType = doc.ContentType || baixado.contentType ||
-        "application/pdf";
-      const { error: upErr } = await admin.storage.from(BUCKET)
-        .upload(storagePath, baixado.bytes, { contentType, upsert: false });
-      if (upErr) {
-        const motivo = `upload falhou: ${upErr.message}`;
-        await registrar(tipo, doc, null, contentType, motivo);
-        falhas.push({ tipo, erro: motivo });
-        continue;
-      }
-      const { error: insErr } = await registrar(
-        tipo,
-        doc,
-        storagePath,
-        contentType,
-        null,
-      );
-      if (insErr) {
-        const motivo =
-          `registro falhou (arquivo em ${storagePath}): ${insErr.message}`;
-        await registrar(tipo, doc, null, contentType, motivo);
-        falhas.push({ tipo, erro: motivo });
-        continue;
-      }
-      salvos++;
+    if (evento === "CANCEL") {
+      await admin.from("prescricoes_mevo").update({ status: "cancelada" }).eq("id", presc.id);
+      return json({ recebido: true, evento }, 201);
     }
 
-    const novoStatus = falhas.length === 0
-      ? "finalizada"
-      : "finalizada_com_erro";
-    await admin.from("prescricoes_mevo")
-      .update({ status: novoStatus, finalizada_em: new Date().toISOString() })
-      .eq("id", presc.id);
-
-    if (falhas.length > 0) {
-      console.error(
-        `[mevo-webhook] EMISSION presc=${presc.id} salvos=${salvos} pulados=${pulados} falhas=`,
-        falhas,
-      );
+    if (evento === "CANCELLED_DOCUMENT") {
+      return json({ recebido: true, evento }, 201);
     }
 
-    // SEMPRE 201 apos registrar — retry da Mevo (1h) nao recupera URL expirada
+    if (!presc.webhook_recebido_em) {
+      await admin
+        .from("prescricoes_mevo")
+        .update({ webhook_recebido_em: new Date().toISOString() })
+        .eq("id", presc.id);
+    }
+
+    const r = await arquivarDocumentos(admin, presc, docs, "webhook");
+
+    // SEMPRE 201 após registrar — o retry da Mevo é de hora em hora.
     return json({
       recebido: true,
-      evento: "EMISSION",
-      documentos_salvos: salvos,
-      ja_capturados: pulados,
-      falhas,
-      status: novoStatus,
+      evento,
+      documentos_salvos: r.salvos,
+      ja_capturados: r.jaArquivados,
+      falhas: r.falhas,
+      status: r.status,
     }, 201);
   } catch (e) {
     console.error("[mevo-webhook] erro inesperado", e);
