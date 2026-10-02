@@ -269,6 +269,19 @@ export default function CockpitScreen({
               onDisconnect={handleDoctorEndCall}
             />
           </div>
+        ) : effectiveConsultationId ? (
+          // Consulta em andamento sem vídeo montado (ex.: página recarregada):
+          // prontuário e documentos seguem disponíveis.
+          <div className="doc-video-strip doc-video-empty">
+            <div className="doc-video-empty-text">
+              <div className="doc-video-empty-eyebrow">consulta em andamento</div>
+              <div className="doc-video-empty-title">Vídeo desconectado</div>
+              <div className="doc-video-empty-sub">
+                O prontuário e a emissão de documentos continuam disponíveis
+                para esta consulta.
+              </div>
+            </div>
+          </div>
         ) : (
           <div className="doc-video-strip doc-video-empty">
             <div className="doc-video-empty-text">

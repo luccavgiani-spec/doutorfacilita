@@ -3137,3 +3137,69 @@ body {
 }
 .admin-toggle-label.is-off { color: var(--txt2); }
 .admin-toggle-label small { color: var(--txt3); margin-left: 4px; font-weight: 400; }
+
+/* ─── Mevo: identificação da prescrição + visualizador de PDF ─────────── */
+.doc-emitted-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.mevo-modal-id { font-weight: 500; color: var(--txt2); }
+.mevo-webhook-ok { color: var(--green-d); font-weight: 600; }
+.chart-pres-id {
+  font-size: 12px; font-weight: 700; color: var(--txt);
+}
+.chart-pres-meta {
+  display: flex; flex-wrap: wrap; gap: 4px;
+  font-size: 11px; color: var(--txt2);
+  margin: -2px 0 8px;
+}
+button.chart-pres-link { cursor: pointer; font-family: inherit; }
+
+.mevo-viewer-overlay {
+  position: fixed; inset: 0; z-index: 1100;
+  background: rgba(11, 27, 58, 0.6);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+}
+.mevo-viewer-box {
+  background: #fff; border-radius: 14px;
+  width: min(1100px, 100%); height: min(92vh, 1000px);
+  display: flex; flex-direction: column; overflow: hidden;
+  box-shadow: 0 24px 64px rgba(11, 27, 58, 0.35);
+}
+.mevo-viewer-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 16px; border-bottom: 1px solid var(--border);
+}
+.mevo-viewer-title { font-size: 14px; font-weight: 700; color: var(--txt); }
+.mevo-viewer-sub { font-size: 12px; color: var(--txt2); margin-top: 2px; }
+.mevo-viewer-actions { display: flex; gap: 8px; }
+.mevo-viewer-btn {
+  padding: 7px 12px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--bg);
+  font-size: 12px; font-weight: 600; color: var(--txt);
+  text-decoration: none; cursor: pointer; font-family: inherit;
+}
+.mevo-viewer-btn:hover { background: var(--blue-l); border-color: var(--blue); }
+.mevo-viewer-body { flex: 1; display: flex; min-height: 0; }
+.mevo-viewer-list {
+  width: 220px; flex-shrink: 0; overflow-y: auto;
+  border-right: 1px solid var(--border); padding: 10px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.mevo-viewer-item {
+  text-align: left; padding: 8px 10px; border-radius: 8px;
+  border: 1px solid var(--hborder); background: #fff;
+  font-size: 12px; color: var(--txt); cursor: pointer; font-family: inherit;
+}
+.mevo-viewer-item.active { background: var(--blue-l); border-color: var(--blue); font-weight: 600; }
+.mevo-viewer-frame { flex: 1; min-width: 0; background: var(--bg); }
+.mevo-viewer-frame iframe { width: 100%; height: 100%; border: 0; display: block; }
+.mevo-viewer-empty {
+  height: 100%; display: flex; align-items: center; justify-content: center;
+  font-size: 13px; color: var(--txt2);
+}
+
+/* Monitor Mevo: destaque da linha que acabou de chegar. */
+.mevo-mon-novo { animation: mevoMonChegou 2.4s ease-out; background: #fff; }
+@keyframes mevoMonChegou {
+  from { background: var(--yellow-l); }
+  to { background: #fff; }
+}

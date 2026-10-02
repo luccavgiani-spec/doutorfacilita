@@ -57,7 +57,7 @@ export default async function MedicoDetailPage({
       .limit(20),
     supabase
       .from("prescricoes_mevo")
-      .select("id, status, ambiente, created_at, mevo_token")
+      .select("id, status, ambiente, created_at, mevo_id_prescricao, codigo_validacao")
       .eq("doctor_id", id)
       .order("created_at", { ascending: false })
       .limit(20),
@@ -228,7 +228,8 @@ export default async function MedicoDetailPage({
           empty="Nenhuma prescrição emitida."
           columns={[
             { key: "created_at", header: "Data", render: (r) => fmt(r.created_at as string) },
-            { key: "mevo_token", header: "Token", render: (r) => (r.mevo_token as string) ?? "—" },
+            { key: "mevo_id_prescricao", header: "idPrescricao", render: (r) => (r.mevo_id_prescricao as string) ?? "—" },
+            { key: "codigo_validacao", header: "Código de validação", render: (r) => (r.codigo_validacao as string) ?? "—" },
             { key: "ambiente", header: "Ambiente" },
             {
               key: "status",
