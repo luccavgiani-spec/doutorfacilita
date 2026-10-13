@@ -1,5 +1,8 @@
 -- Mevo: deduplicação de PDFs + trilha de eventos da integração.
 --
+-- Já APLICADA EM PRODUÇÃO via MCP em 2026-10-13 (idempotente; reaplicar não
+-- altera nada).
+--
 -- 1. Cada PDF chegava duas vezes: pelo webhook EMISSION e, segundos depois,
 --    pelo postMessage `prescricao` da iframe. As URLs têm assinaturas S3
 --    diferentes, mas apontam para o mesmo objeto. `mevo_object_key` é a URL
