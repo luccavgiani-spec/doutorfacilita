@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { DataTable, StatusBadge } from "@/components/ui/data-table";
 import MevoConfigCard from "@/components/admin/MevoConfigCard";
@@ -44,7 +45,7 @@ export default async function MevoPage() {
       .maybeSingle(),
     supabase
       .from("prescricoes_mevo")
-      .select("id, status, ambiente, created_at, mevo_token, qrcode_url")
+      .select("id, status, ambiente, created_at, mevo_id_prescricao, codigo_validacao, webhook_recebido_em, qrcode_url")
       .order("created_at", { ascending: false })
       .limit(50),
     supabase
@@ -78,11 +79,20 @@ export default async function MevoPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <header>
-        <h1 className="text-lg font-bold">Mevo Receita Digital</h1>
-        <p className="text-xs text-txt-2">
-          Configuração da integração e monitoramento de prescrições
-        </p>
+      <header className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-lg font-bold">Mevo Receita Digital</h1>
+          <p className="text-xs text-txt-2">
+            Configuração da integração e monitoramento de prescrições
+          </p>
+        </div>
+        <Link
+          href="/cockpit/mevo-monitor"
+          target="_blank"
+          className="rounded-lg bg-blue px-3 py-2 text-xs font-semibold text-white hover:bg-blue-dark"
+        >
+          Abrir monitor ao vivo ↗
+        </Link>
       </header>
 
       <MevoConfigCard inicial={inicial} />
@@ -111,13 +121,20 @@ export default async function MevoPage() {
           columns={[
             { key: "created_at", header: "Data", className: "whitespace-nowrap", render: (r) => fmt(r.created_at as string) },
             {
-              key: "mevo_token",
-              header: "Token",
-              render: (r) => (
-                <span className="block max-w-[200px] truncate font-mono text-xs" title={(r.mevo_token as string) ?? ""}>
-                  {(r.mevo_token as string) ?? "—"}
-                </span>
-              ),
+              key: "mevo_id_prescricao",
+              header: "idPrescricao",
+              render: (r) => <span className="font-mono text-xs">{(r.mevo_id_prescricao as string) ?? "—"}</span>,
+            },
+            {
+              key: "codigo_validacao",
+              header: "Código de validação",
+              render: (r) => <span className="font-mono text-xs">{(r.codigo_validacao as string) ?? "—"}</span>,
+            },
+            {
+              key: "webhook_recebido_em",
+              header: "Webhook",
+              className: "whitespace-nowrap",
+              render: (r) => (r.webhook_recebido_em ? fmt(r.webhook_recebido_em as string) : "—"),
             },
             { key: "ambiente", header: "Ambiente" },
             {

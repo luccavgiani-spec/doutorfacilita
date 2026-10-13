@@ -11,6 +11,7 @@ import {
 } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useDebouncedCallback } from "@/hooks/useDebouncedCallback";
+import DocumentosMevoConsulta from "@/components/cockpit/DocumentosMevoConsulta";
 import {
   aplicarTemplate,
   type ContextoTemplate,
@@ -417,6 +418,10 @@ const ChartPanel = forwardRef<ChartPanelHandle, ChartPanelProps>(
 
       <div className="doc-chart-body">
         <PatientHeader patient={patient} loading={loading} />
+
+        {tab === "prontuario" && consultation && (
+          <DocumentosMevoConsulta consultationId={consultation.id} aoVivo />
+        )}
 
         {tab === "prontuario" && (
           <ProntuarioForm
@@ -1009,15 +1014,6 @@ type DrawerRecord = {
   conduct: string | null;
 };
 
-type DrawerPrescricao = {
-  id: string;
-  status: string;
-  ambiente: string;
-  created_at: string | null;
-  codigo_validacao: string | null;
-  documentos: Array<{ id: string; tipo_documento: string; storage_path: string }>;
-};
-
 function HistoricoDrawer({
   item,
   onClose,
@@ -1034,47 +1030,21 @@ function HistoricoDrawer({
     }
   }
   const [record, setRecord] = useState<DrawerRecord | null>(null);
-  const [prescricoes, setPrescricoes] = useState<DrawerPrescricao[] | null>(null);
-  const [docUrls, setDocUrls] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const sb = supabaseRef.current;
     if (!sb) return;
     let cancelled = false;
     (async () => {
-      const [{ data: mr }, { data: ps }] = await Promise.all([
-        sb
-          .from("medical_records")
-          .select(
-            "chief_complaint, history_present_illness, physical_exam, diagnostic_hypothesis, cid10_codes, conduct",
-          )
-          .eq("consultation_id", item.id)
-          .maybeSingle(),
-        sb
-          .from("prescricoes_mevo")
-          .select(
-            "id, status, ambiente, created_at, codigo_validacao, documentos:prescricoes_documentos(id, tipo_documento, storage_path)",
-          )
-          .eq("consultation_id", item.id)
-          .order("created_at", { ascending: false }),
-      ]);
+      const { data: mr } = await sb
+        .from("medical_records")
+        .select(
+          "chief_complaint, history_present_illness, physical_exam, diagnostic_hypothesis, cid10_codes, conduct",
+        )
+        .eq("consultation_id", item.id)
+        .maybeSingle();
       if (cancelled) return;
       setRecord((mr as DrawerRecord) ?? null);
-      const prescricoesData = (ps ?? []) as unknown as DrawerPrescricao[];
-      setPrescricoes(prescricoesData);
-
-      // Signed URLs pros PDFs
-      const allDocs = prescricoesData.flatMap((p) => p.documentos ?? []);
-      const urlsByPath: Record<string, string> = {};
-      await Promise.all(
-        allDocs.map(async (d) => {
-          const { data: signed } = await sb.storage
-            .from("prescricoes-pdfs")
-            .createSignedUrl(d.storage_path, 3600);
-          if (signed?.signedUrl) urlsByPath[d.id] = signed.signedUrl;
-        }),
-      );
-      if (!cancelled) setDocUrls(urlsByPath);
     })();
     return () => {
       cancelled = true;
@@ -1122,43 +1092,7 @@ function HistoricoDrawer({
           />
           <DrawerSection label="Conduta" value={record?.conduct} />
 
-          <div className="chart-section">
-            <div className="chart-section-label">Documentos emitidos (Mevo)</div>
-            {prescricoes === null && <div className="chart-empty-soft">Carregando…</div>}
-            {prescricoes?.length === 0 && (
-              <div className="chart-empty-soft">Nenhum documento Mevo nessa consulta.</div>
-            )}
-            {prescricoes?.map((p) => (
-              <div key={p.id} className="chart-pres-card">
-                <div className="chart-pres-top">
-                  <span className="chart-pres-status">{p.status}</span>
-                  {p.codigo_validacao && (
-                    <span className="chart-pres-code">cod: {p.codigo_validacao}</span>
-                  )}
-                </div>
-                <div className="chart-pres-docs">
-                  {(p.documentos ?? []).map((d) => {
-                    const url = docUrls[d.id];
-                    return url ? (
-                      <a
-                        key={d.id}
-                        href={url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="chart-pres-link"
-                      >
-                        📄 {d.tipo_documento}
-                      </a>
-                    ) : (
-                      <span key={d.id} className="chart-pres-link chart-pres-link--off">
-                        📄 {d.tipo_documento}
-                      </span>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
+          <DocumentosMevoConsulta consultationId={item.id} />
         </div>
       </div>
     </div>

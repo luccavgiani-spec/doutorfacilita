@@ -9,6 +9,8 @@
 //   6. trata 412 (array de erros de validação) de forma legível
 //   7. salva linha em prescricoes_mevo
 //   8. devolve { modal_url, prescricao_id }
+//   Validação local, chamada à Mevo e resultado viram eventos em mevo_eventos
+//   (monitor do admin), sem credencial nem URL da modal.
 //
 // Guard: se MEVO_AUTH_B64 estiver vazia → 503 (UI mostra "aguardando credenciais").
 //
@@ -23,6 +25,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { json, preflight, resolveDoctor } from "../_shared/http.ts";
 import { pick } from "../_shared/mevo-utils.ts";
+import { registrarEvento } from "../_shared/mevo-eventos.ts";
 import type {
   MevoErroValidacao,
   MevoRespostaIniciar,
@@ -131,7 +134,16 @@ Deno.serve(async (req) => {
   if (!patient.full_name) faltantes.push("paciente: nome");
   if (!onlyDigits(patient.cpf)) faltantes.push("paciente: CPF");
 
+  const ctxEvento = { consultation_id: consultationId, doctor_id: doctor.id as string };
+
   if (faltantes.length > 0) {
+    await registrarEvento(admin, {
+      ...ctxEvento,
+      origem: "backend",
+      evento: "Validação antes do iniciar",
+      http_status: 422,
+      resumo: "Dados obrigatórios ausentes — a Mevo não foi chamada: " + faltantes.join(", "),
+    });
     return json(
       {
         error: "dados_incompletos",
@@ -156,7 +168,16 @@ Deno.serve(async (req) => {
   });
 
   const missing = validarPayloadMevo(payload);
-  if (missing.length) return json({ error: "dados_incompletos", message: "Complete o endereço profissional no Perfil e os dados do estabelecimento em Admin > Mevo: " + missing.join(", "), faltantes: missing }, 422);
+  if (missing.length) {
+    await registrarEvento(admin, {
+      ...ctxEvento,
+      origem: "backend",
+      evento: "Validação antes do iniciar",
+      http_status: 422,
+      resumo: "Payload incompleto — a Mevo não foi chamada: " + missing.join(", "),
+    });
+    return json({ error: "dados_incompletos", message: "Complete o endereço profissional no Perfil e os dados do estabelecimento em Admin > Mevo: " + missing.join(", "), faltantes: missing }, 422);
+  }
 
   // ─── Chama a Mevo ───────────────────────────────────────────────
   const url = `${baseUrl.replace(/\/+$/, "")}/api/prescricao/iniciar`;
@@ -181,15 +202,28 @@ Deno.serve(async (req) => {
     }
   };
 
+  // Evento da chamada: endpoint e payload sanitizados (sem credencial; CPF,
+  // telefone e e-mail mascarados) — aparece no monitor do admin.
+  const eventoChamada = {
+    ...ctxEvento,
+    origem: "backend" as const,
+    evento: "POST /api/prescricao/iniciar",
+  };
+  const t0 = Date.now();
   let mevoResp: Response;
   try {
     mevoResp = await chamarMevo(payload);
   } catch (e) {
-    return json(
-      { error: "mevo_unreachable", detail: e instanceof Error ? e.message : String(e) },
-      502,
-    );
+    const detail = e instanceof Error ? e.message : String(e);
+    await registrarEvento(admin, {
+      ...eventoChamada,
+      duracao_ms: Date.now() - t0,
+      resumo: "Mevo inacessível: " + detail,
+      detalhe: { endpoint: url },
+    });
+    return json({ error: "mevo_unreachable", detail }, 502);
   }
+  const duracaoMs = Date.now() - t0;
 
   // Não descartar dados demográficos para contornar uma validação Mevo.
   const erros412 = mevoResp.status === 412 ? await parseErros(mevoResp) : [];
@@ -197,6 +231,13 @@ Deno.serve(async (req) => {
     const legivel = erros412
       .map((e) => [e.Entidade, e.Campo, e.Descricao].filter(Boolean).join(" · "))
       .filter(Boolean);
+    await registrarEvento(admin, {
+      ...eventoChamada,
+      http_status: 412,
+      duracao_ms: duracaoMs,
+      resumo: "A Mevo recusou os dados: " + (legivel.join("; ") || "sem detalhe"),
+      detalhe: { endpoint: url, requisicao: payload, erros: erros412 },
+    });
     return json(
       {
         error: "mevo_validacao",
@@ -211,6 +252,13 @@ Deno.serve(async (req) => {
 
   if (!mevoResp.ok) {
     const detail = await mevoResp.text().catch(() => "");
+    await registrarEvento(admin, {
+      ...eventoChamada,
+      http_status: mevoResp.status,
+      duracao_ms: duracaoMs,
+      resumo: `Erro da Mevo (HTTP ${mevoResp.status})`,
+      detalhe: { endpoint: url, resposta: detail.slice(0, 500) },
+    });
     return json(
       { error: "mevo_erro", status: mevoResp.status, detail: detail.slice(0, 1000) },
       502,
@@ -234,6 +282,14 @@ Deno.serve(async (req) => {
 
   if (!modalUrl) console.error("[mevo-iniciar] resposta sem ModalURL. Chaves recebidas:", Object.keys(r));
   if (!modalUrl) {
+    await registrarEvento(admin, {
+      ...eventoChamada,
+      http_status: mevoResp.status,
+      duracao_ms: duracaoMs,
+      mevo_id_prescricao: mevoId,
+      resumo: "Resposta da Mevo sem ModalURL",
+      detalhe: { endpoint: url, resposta: r },
+    });
     return json(
       { error: "mevo_sem_url", message: "Mevo não retornou URL da prescrição." },
       502,
@@ -263,10 +319,21 @@ Deno.serve(async (req) => {
     );
   }
 
+  await registrarEvento(admin, {
+    ...eventoChamada,
+    http_status: mevoResp.status,
+    duracao_ms: duracaoMs,
+    mevo_id_prescricao: mevoId,
+    prescricao_id: inserted.id,
+    resumo: `idPrescricao ${mevoId ?? "—"} · código ${codigo ?? "—"} · ModalURL recebida, abrindo a Mevo no Cockpit`,
+    detalhe: { endpoint: url, requisicao: payload, resposta: r },
+  });
+
   return json({
     modal_url: modalUrl,
     prescricao_id: inserted.id,
     mevo_id_prescricao: mevoId,
     mevo_token: token,
+    codigo_validacao: codigo,
   });
 });

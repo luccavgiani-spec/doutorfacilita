@@ -2,13 +2,13 @@
 
 import { useCallback, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { listarDocumentosArquivados } from "@/lib/mevo/documentos";
 import type {
+  DocumentoArquivado,
   DocumentoMevo,
   IniciarResposta,
   PrescricaoMevo,
 } from "@/lib/mevo/types";
-
-const BUCKET = "prescricoes-pdfs";
 
 /** Erro estruturado vindo de uma Edge Function (corpo JSON do response). */
 export interface MevoFuncError {
@@ -135,6 +135,8 @@ export function useMevoPrescricao(consultationId?: string) {
       | {
           ok: true;
           documentos_salvos: number;
+          /** Mesmos PDFs já arquivados antes pelo webhook EMISSION. */
+          ja_arquivados: number;
           falhas: Array<{ tipo: string; erro: string }>;
         }
       | { ok: false; erro: MevoFuncError }
@@ -147,9 +149,15 @@ export function useMevoPrescricao(consultationId?: string) {
       if (error) return { ok: false, erro: await parseFuncError(error) };
       const d = data as {
         documentos_salvos: number;
+        ja_arquivados?: number;
         falhas: Array<{ tipo: string; erro: string }>;
       };
-      return { ok: true, documentos_salvos: d.documentos_salvos, falhas: d.falhas };
+      return {
+        ok: true,
+        documentos_salvos: d.documentos_salvos,
+        ja_arquivados: d.ja_arquivados ?? 0,
+        falhas: d.falhas,
+      };
     },
     [],
   );
@@ -162,56 +170,17 @@ export function useMevoPrescricao(consultationId?: string) {
     const { data } = await supabase
       .from("prescricoes_mevo")
       .select(
-        "id, consultation_id, mevo_id_prescricao, mevo_token, qrcode_url, codigo_validacao, status, ambiente, created_at, finalizada_em",
+        "id, consultation_id, mevo_id_prescricao, qrcode_url, codigo_validacao, status, ambiente, created_at, finalizada_em, webhook_recebido_em",
       )
       .eq("consultation_id", consultationId)
       .order("created_at", { ascending: false });
     return (data as PrescricaoMevo[] | null) ?? [];
   }, [consultationId]);
 
-  /** Gera signed URLs (1h) dos PDFs de uma prescrição para download. */
+  /** PDFs arquivados no prontuário para as prescrições informadas. */
   const listarDocumentos = useCallback(
-    async (
-      prescricaoId: string,
-    ): Promise<Array<{ tipo: string; url: string | null }>> => {
-      const supabase = createClient();
-      const { data: docs } = await supabase
-        .from("prescricoes_documentos")
-        .select("tipo_documento, storage_path")
-        .eq("prescricao_id", prescricaoId)
-        .order("created_at", { ascending: true });
-
-      const linhas = (docs as
-        | Array<{ tipo_documento: string; storage_path: string }>
-        | null) ?? [];
-
-      const out: Array<{ tipo: string; url: string | null }> = [];
-      for (const l of linhas) {
-        const { data: signed } = await supabase.storage
-          .from(BUCKET)
-          .createSignedUrl(l.storage_path, 3600);
-        out.push({ tipo: l.tipo_documento, url: signed?.signedUrl ?? null });
-      }
-      return out;
-    },
-    [],
-  );
-
-  /** Conta documentos arquivados por prescrição (para o label "Baixar N PDFs"). */
-  const contarDocumentos = useCallback(
-    async (prescricaoIds: string[]): Promise<Record<string, number>> => {
-      if (prescricaoIds.length === 0) return {};
-      const supabase = createClient();
-      const { data } = await supabase
-        .from("prescricoes_documentos")
-        .select("prescricao_id")
-        .in("prescricao_id", prescricaoIds);
-      const out: Record<string, number> = {};
-      for (const row of (data as { prescricao_id: string }[] | null) ?? []) {
-        out[row.prescricao_id] = (out[row.prescricao_id] ?? 0) + 1;
-      }
-      return out;
-    },
+    async (prescricaoIds: string[]): Promise<DocumentoArquivado[]> =>
+      listarDocumentosArquivados(createClient(), prescricaoIds),
     [],
   );
 
@@ -223,6 +192,5 @@ export function useMevoPrescricao(consultationId?: string) {
     salvarDocumentos,
     listarPrescricoesDaConsulta,
     listarDocumentos,
-    contarDocumentos,
   };
 }

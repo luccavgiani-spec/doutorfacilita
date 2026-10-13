@@ -3,9 +3,9 @@
 Infraestrutura completa para emissão de receita digital via **Mevo Receita
 Digital** (Nexodata) embutida no Cockpit do médico.
 
-> **Status:** código pronto e buildando. A integração **só funciona
-> end-to-end quando `MEVO_AUTH_B64` for preenchida** com a credencial real
-> da Mevo. Até lá, a UI mostra o estado "🔧 Aguardando credenciais".
+> **Status (02/10/2026):** em homologação, emitindo e assinando receitas de
+> ponta a ponta. Validação técnica da Mevo (vídeo + evidências) em
+> preparação; credencial de produção sai depois dela.
 
 ## Arquitetura
 
@@ -16,9 +16,23 @@ Digital** (Nexodata) embutida no Cockpit do médico.
   Function no Supabase (`Authorization: Basic` setado server-side).
 - **Fonte única do médico:** `public.doctors` (a tabela `medico_profiles` foi
   mergeada na migration 017). Paciente vem de `consultations → patients`.
-- **PDFs expiram em 10 min.** O evento `prescricao` dispara o download
-  imediato e o arquivamento no bucket privado `prescricoes-pdfs`
-  (compliance CFM 1.821/2007).
+- **Os links dos PDFs valem 24 h**, então o sistema baixa e arquiva no
+  recebimento, no bucket privado `prescricoes-pdfs` (CFM 1.821/2007). Dois
+  canais trazem os documentos:
+  1. **Webhook `EMISSION`** (`mevo-webhook`, server-to-server) — caminho
+     principal, não depende do navegador do médico.
+  2. **postMessage `prescricao`** da iframe → `mevo-salvar-documentos` —
+     redundância; também é o que fecha a modal no Cockpit.
+
+  Os dois entregam o mesmo objeto S3 com assinaturas diferentes. O
+  arquivamento compartilhado (`_shared/mevo-arquivo.ts`) usa a URL sem query
+  string (`prescricoes_documentos.mevo_object_key`) como chave, com índice
+  único parcial cobrindo a corrida entre os canais — um PDF, uma linha.
+- **Trilha de eventos:** toda chamada à API, webhook, postMessage e PDF
+  arquivado vira uma linha em `public.mevo_eventos` (detalhe sanitizado: sem
+  credencial, token, URL da modal ou assinatura; CPF/telefone/e-mail
+  mascarados). Alimenta o monitor `/cockpit/mevo-monitor` e o refresh ao vivo
+  do prontuário.
 
 ## Migrations
 
@@ -34,6 +48,7 @@ npx supabase db push      # aplica 017..021 no projeto linkado
 | `019_create_prescricoes_mevo` | tabela `prescricoes_mevo` + RLS (`doctors.user_id = auth.uid()`) |
 | `020_create_prescricoes_documentos` | tabela `prescricoes_documentos` + RLS |
 | `021_create_prescricoes_storage_bucket` | bucket privado `prescricoes-pdfs` + policy de leitura |
+| `20261002000000_mevo_eventos_e_dedupe_documentos` | `prescricoes_documentos` += `mevo_object_key`, `origem` + índice único por objeto; `prescricoes_mevo.webhook_recebido_em`; tabela `mevo_eventos` (RLS admin ou médico dono, Realtime) |
 
 > O bucket também pode ser criado pelo Dashboard → Storage → New bucket
 > `prescricoes-pdfs` com **Public = OFF**. A migration 021 já faz isso via
@@ -45,13 +60,21 @@ npx supabase db push      # aplica 017..021 no projeto linkado
 npx supabase functions deploy mevo-iniciar-prescricao
 npx supabase functions deploy mevo-reabrir-prescricao
 npx supabase functions deploy mevo-salvar-documentos
+npx supabase functions deploy mevo-webhook --no-verify-jwt
 ```
 
 | Função | Body | Papel |
 |---|---|---|
 | `mevo-iniciar-prescricao` | `{ consultation_id }` | valida médico/consulta/paciente, monta payload, chama `POST /api/prescricao/iniciar`, salva `prescricoes_mevo`, devolve `{ modal_url, prescricao_id }` |
 | `mevo-reabrir-prescricao` | `{ prescricao_id }` | "terminar mais tarde": `POST /api/prescricao/{idMevo}/sessao`, devolve nova `modal_url` |
-| `mevo-salvar-documentos` | `{ prescricao_id, documentos[] }` | baixa cada PDF (retry 2x, timeout 30s), sobe pro bucket, registra; status `finalizada` ou `finalizada_com_erro` |
+| `mevo-salvar-documentos` | `{ prescricao_id, documentos[] }` | repasse do postMessage `prescricao`; arquiva o que o webhook ainda não arquivou e devolve `{ documentos_salvos, ja_arquivados, falhas }` |
+| `mevo-webhook` | payload da Mevo (auth: postKey em `Authorization`) | `EMISSION` arquiva os PDFs e carimba `webhook_recebido_em`; `CANCEL` marca `cancelada`; `CANCELLED_DOCUMENT` registra. Sempre **201** após registrar (outra resposta faz a Mevo re-tentar de hora em hora) |
+
+O tipo do evento vem do campo declarado no payload, quando existir; senão é
+deduzido do formato: `Documentos` array → `EMISSION`, objeto →
+`CANCELLED_DOCUMENT`, só `idPrescricao` → `CANCEL`. O payload sanitizado de
+cada webhook fica em `mevo_eventos.detalhe` — é a referência do formato real,
+já que a seção de webhook da doc oficial não está arquivada no projeto.
 
 Tipos compartilhados: `supabase/functions/_shared/mevo-types.ts`
 (espelhado no frontend em `src/lib/mevo/types.ts`).
@@ -65,7 +88,7 @@ npx supabase secrets set \
   MEVO_SUBPARCEIRO=PLANTAO_DIGITAL \
   MEVO_LOGO_URL=                # URL pública do logo (162x50px, ≤500kb) \
   MEVO_COR_PRIMARIA=#0066CC \
-  MEVO_COR_SECUNDARIA=#00A3FF
+  MEVO_COR_SECUNDARIA=#00A3FF   MEVO_WEBHOOK_POSTKEY=         # valor exato que a Mevo manda em Authorization no webhook
 ```
 
 `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` são injetados automaticamente
@@ -128,12 +151,13 @@ quando os médicos reais clicarem.
 |---|---|---|
 | Subtítulo dinâmico (sem consulta / aguardando credencial / pronto · ambiente) | probe `mevo-iniciar-prescricao` com `{ check: true }` reaproveitando o guard **503 `mevo_nao_configurada`**; `ambiente` derivado de `MEVO_BASE_URL` (fallback `NEXT_PUBLIC_MEVO_AMBIENTE`) | Arquitetura da credencial única do parceiro |
 | Botão **Emitir prescrição** | `POST /api/prescricao/iniciar` (Edge Function) | p.13 — modal única Mevo Prescritores |
-| Lista "Prescrições desta consulta" (`Token:`, `Código:`, status, timestamp) | tabela `prescricoes_mevo` (migration 019) | p.16, p.18-19 |
+| Lista "Prescrições desta consulta" (`Prescrição nº {idPrescricao}`, código de validação, status, horário do webhook, botão copiar) — o token da sessão **não** aparece na tela | tabela `prescricoes_mevo` (migration 019) | p.16, p.18-19 |
 | Botão **Ver QR Code** | `prescricoes_mevo.qrcode_url` (migration 019) | p.16 |
-| Botão **Baixar N PDFs** | `prescricoes_documentos` + signed URL do bucket privado (migration 020/021) | p.16 |
+| Botão **Ver N PDFs** → visualizador na própria página, com download | `prescricoes_documentos` + signed URL do bucket privado (migration 020/021) | p.16 |
+| Seção **Documentos emitidos (Mevo)** na aba Prontuário (consulta atual, ao vivo) e no drawer do Histórico | `prescricoes_mevo` + `prescricoes_documentos`; Realtime em `mevo_eventos` | p.16 |
 | Bloco informativo "Tipos de documento na modal Mevo" (9 tipos) | texto estático fiel — o tipo é escolhido **dentro** da modal, não antes | p.18-19 (RECEITA SIMPLES/CONTROLE ESPECIAL, EXAME, ATESTADO, LME, ENCAMINHAMENTO, RELATORIO, INSTRUCAO, MANIPULADOS) |
 | "✓ Última prescrição enviada para o paciente (SMS + e-mail)" | só aparece quando há prescrição `finalizada`/`finalizada_com_erro` | p.19 (SMS+e-mail são disparados pela Mevo após emissão) |
-| Rodapé "Assinatura digital obrigatória (ICP-Brasil) · PDFs arquivados em até 10min · CFM 1.821/2007" | — | p.16 (janela de 10 min dos PDFs) |
+| Rodapé "Assinatura digital obrigatória (ICP-Brasil) · PDFs baixados no recebimento e arquivados no prontuário · CFM 1.821/2007" | — | links da Mevo valem 24 h |
 
 > O médico **escolhe o certificado dentro da modal Mevo**. A doc lista 6
 > opções (Bird ID, VoultID, SafeID, Safe4Health, Vidaas, A1/A3 ICP-Brasil).
@@ -190,3 +214,22 @@ taxa de sucesso, últimas 50) e as falhas de download
 > (env), nunca no banco/UI. Enquanto essa alteração não for feita +
 > redeployada, salvar no `/admin/mevo` persiste mas não muda o
 > comportamento das funções.
+
+## Monitor ao vivo (`/cockpit/mevo-monitor`)
+
+Tabela que se atualiza sozinha (Realtime em `mevo_eventos` + polling
+incremental de 3 s) com cada interação entre o Plantão Digital e a Mevo:
+
+| Fluxo | Eventos |
+|---|---|
+| Backend → API Mevo | `POST /api/prescricao/iniciar` (status, ms, idPrescricao, código), `POST /api/prescricao/{id}/sessao`, validação local que barra o envio (422) |
+| Mevo → Webhook | `EMISSION`, `CANCEL`, `CANCELLED_DOCUMENT` (sempre 201) |
+| Iframe → Sistema | `postMessage prescricao` (modal fechou ao finalizar) |
+| Prontuário | PDF arquivado (tipo, KB, canal) ou cópia ignorada por já estar arquivada |
+
+Clicar numa linha abre o detalhe sanitizado (payload enviado, resposta,
+webhook recebido). Mostra data e hora ao vivo e o host da API (homologação ou
+produção). Admin vê todos os eventos; médico, só os das próprias prescrições.
+Link em **Admin > Mevo > Abrir monitor ao vivo**. Pensado para gravar o
+roteiro de validação em tela dividida com o Cockpit.
+

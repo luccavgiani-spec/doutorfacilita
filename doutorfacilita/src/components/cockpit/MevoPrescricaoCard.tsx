@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useMevoPrescricao } from "@/hooks/useMevoPrescricao";
-import type { EventoMevo, PrescricaoMevo } from "@/lib/mevo/types";
+import MevoDocumentosViewer from "@/components/cockpit/MevoDocumentosViewer";
+import { avisarDocumentosAtualizados, fmtHora } from "@/lib/mevo/documentos";
+import type { DocumentoArquivado, EventoMevo, PrescricaoMevo } from "@/lib/mevo/types";
 
 const IS_DEV = process.env.NODE_ENV !== "production";
 
@@ -23,11 +25,24 @@ const AMBIENTE_FALLBACK =
 type Estado =
   | { kind: "ocioso" }
   | { kind: "carregando" }
-  | { kind: "modal"; url: string; prescricaoId: string }
+  | { kind: "modal"; url: string; prescricao: PrescricaoAtiva }
   | { kind: "erro"; msg: string }
   | { kind: "nao_configurada" }
-  | { kind: "salvando" }
-  | { kind: "salvo"; salvos: number; falhas: number };
+  | { kind: "salvando"; prescricao: PrescricaoAtiva }
+  | {
+      kind: "salvo";
+      prescricao: PrescricaoAtiva;
+      salvos: number;
+      jaArquivados: number;
+      falhas: number;
+    };
+
+/** Prescrição aberta na modal: id local + identificação Mevo exibida na tela. */
+type PrescricaoAtiva = {
+  id: string;
+  idMevo: string | null;
+  codigo: string | null;
+};
 
 // null = ainda checando.
 type ConfigCheck =
@@ -67,24 +82,25 @@ export default function MevoPrescricaoCard({
     salvarDocumentos,
     listarPrescricoesDaConsulta,
     listarDocumentos,
-    contarDocumentos,
   } = useMevoPrescricao(consultationId);
 
   const [estado, setEstado] = useState<Estado>({ kind: "ocioso" });
   const [prescricoes, setPrescricoes] = useState<PrescricaoMevo[]>([]);
-  const [docCounts, setDocCounts] = useState<Record<string, number>>({});
+  const [docs, setDocs] = useState<DocumentoArquivado[]>([]);
   const [config, setConfig] = useState<ConfigCheck>(null);
   const [qrUrl, setQrUrl] = useState<string | null>(null);
-  // prescricaoId "ao vivo" — usado pelo listener de postMessage sem stale closure.
-  const prescricaoAtivaRef = useRef<string | null>(null);
+  const [viewer, setViewer] = useState<PrescricaoMevo | null>(null);
+  const [copiado, setCopiado] = useState<string | null>(null);
+  // Prescrição "ao vivo" — usada pelo listener de postMessage sem stale closure.
+  const prescricaoAtivaRef = useRef<PrescricaoAtiva | null>(null);
 
   const consultationActive = !!consultationId;
 
   const recarregarLista = useCallback(async () => {
     const lista = await listarPrescricoesDaConsulta();
     setPrescricoes(lista);
-    setDocCounts(await contarDocumentos(lista.map((p) => p.id)));
-  }, [listarPrescricoesDaConsulta, contarDocumentos]);
+    setDocs(await listarDocumentos(lista.map((p) => p.id)));
+  }, [listarPrescricoesDaConsulta, listarDocumentos]);
 
   useEffect(() => {
     if (consultationId) recarregarLista();
@@ -105,6 +121,7 @@ export default function MevoPrescricaoCard({
     prescricaoAtivaRef.current = null;
     setEstado({ kind: "ocioso" });
     recarregarLista();
+    avisarDocumentosAtualizados();
   }, [recarregarLista]);
 
   // ─── Listener de mensagens da iframe Mevo ─────────────────────────
@@ -116,19 +133,21 @@ export default function MevoPrescricaoCard({
       const validos = ["cancel", "excluded", "prescricao"];
       if (!data || !validos.includes(data.type)) return;
 
-      const prescricaoId = prescricaoAtivaRef.current;
-      if (!prescricaoId) return;
+      const ativa = prescricaoAtivaRef.current;
+      if (!ativa) return;
 
       if (data.type === "prescricao") {
-        // CRÍTICO: PDFs expiram em 10 min — salvar imediatamente.
-        setEstado({ kind: "salvando" });
-        const docs = data.Documentos ?? [];
-        const r = await salvarDocumentos(prescricaoId, docs);
+        // A modal fecha aqui. O webhook EMISSION normalmente já arquivou os
+        // PDFs; este repasse é a redundância (o backend não duplica).
+        setEstado({ kind: "salvando", prescricao: ativa });
+        const r = await salvarDocumentos(ativa.id, data.Documentos ?? []);
         prescricaoAtivaRef.current = null;
         if (r.ok) {
           setEstado({
             kind: "salvo",
+            prescricao: ativa,
             salvos: r.documentos_salvos,
+            jaArquivados: r.ja_arquivados,
             falhas: r.falhas.length,
           });
         } else {
@@ -141,6 +160,7 @@ export default function MevoPrescricaoCard({
           });
         }
         recarregarLista();
+        avisarDocumentosAtualizados();
       } else if (data.type === "cancel") {
         // "Terminar mais tarde" — idPrescricao já está salvo, nada a fazer.
         fecharIframe();
@@ -152,18 +172,22 @@ export default function MevoPrescricaoCard({
     return () => window.removeEventListener("message", handleMessage);
   }, [salvarDocumentos, fecharIframe, recarregarLista]);
 
-  function abrirModal(url: string, prescricaoId: string) {
+  function abrirModal(url: string, prescricao: PrescricaoAtiva) {
     // A interface da Mevo renderiza SEMPRE inline no card do centro, que o
     // grid garante com ≥900px. Sem overlay, sem expandir, sem guard de tela.
-    prescricaoAtivaRef.current = prescricaoId;
-    setEstado({ kind: "modal", url, prescricaoId });
+    prescricaoAtivaRef.current = prescricao;
+    setEstado({ kind: "modal", url, prescricao });
   }
 
   async function handleEmitir() {
     setEstado({ kind: "carregando" });
     const r = await iniciarPrescricao();
     if (r.ok) {
-      abrirModal(r.data.modal_url, r.data.prescricao_id);
+      abrirModal(r.data.modal_url, {
+        id: r.data.prescricao_id,
+        idMevo: r.data.mevo_id_prescricao,
+        codigo: r.data.codigo_validacao ?? null,
+      });
       return;
     }
     if (r.erro.naoConfigurada) {
@@ -177,11 +201,11 @@ export default function MevoPrescricaoCard({
     });
   }
 
-  async function handleReabrir(prescricaoId: string) {
+  async function handleReabrir(p: PrescricaoMevo) {
     setEstado({ kind: "carregando" });
-    const r = await reabrirPrescricao(prescricaoId);
+    const r = await reabrirPrescricao(p.id);
     if (r.ok) {
-      abrirModal(r.modal_url, prescricaoId);
+      abrirModal(r.modal_url, { id: p.id, idMevo: p.mevo_id_prescricao, codigo: p.codigo_validacao });
       return;
     }
     if (r.erro.naoConfigurada) {
@@ -195,14 +219,15 @@ export default function MevoPrescricaoCard({
     });
   }
 
-  async function baixarPdfs(prescricaoId: string) {
-    const docs = await listarDocumentos(prescricaoId);
-    if (docs.length === 0) {
-      alert("Nenhum documento arquivado para esta prescrição ainda.");
-      return;
-    }
-    for (const d of docs) {
-      if (d.url) window.open(d.url, "_blank", "noopener");
+  // Texto para enviar à Mevo (seção 5 do roteiro de validação).
+  async function copiarIdentificacao(p: PrescricaoMevo) {
+    const texto = `idPrescricao: ${p.mevo_id_prescricao ?? "—"} · Código de validação: ${p.codigo_validacao ?? "—"}`;
+    try {
+      await navigator.clipboard.writeText(texto);
+      setCopiado(p.id);
+      window.setTimeout(() => setCopiado((c) => (c === p.id ? null : c)), 1800);
+    } catch {
+      /* clipboard indisponível */
     }
   }
 
@@ -251,7 +276,12 @@ export default function MevoPrescricaoCard({
         {estado.kind === "modal" ? (
           <div className="mevo-modal">
             <div className="mevo-modal-head">
-              <strong style={{ fontSize: 13 }}>Mevo Prescritores</strong>
+              <strong style={{ fontSize: 13 }}>
+                Mevo Prescritores
+                {estado.prescricao.idMevo && (
+                  <span className="mevo-modal-id"> · Prescrição nº {estado.prescricao.idMevo}</span>
+                )}
+              </strong>
               <div className="mevo-modal-actions">
                 <button
                   type="button"
@@ -275,7 +305,7 @@ export default function MevoPrescricaoCard({
             <span className="mevo-spinner" aria-hidden />
             <div style={{ marginTop: 8, fontSize: 13 }}>
               {estado.kind === "salvando"
-                ? "Arquivando documentos (janela de 10 min)…"
+                ? `Prescrição nº ${estado.prescricao.idMevo ?? "—"} finalizada · arquivando documentos no prontuário…`
                 : "Abrindo prescrição na Mevo…"}
             </div>
           </div>
@@ -304,8 +334,21 @@ export default function MevoPrescricaoCard({
           </div>
         ) : estado.kind === "salvo" ? (
           <div className="mevo-state-ok">
-            ✅ {estado.salvos} documento(s) arquivado(s) com sucesso
-            {estado.falhas > 0 && ` · ${estado.falhas} com falha (verifique a lista)`}.
+            <div>
+              ✅ Prescrição nº <b>{estado.prescricao.idMevo ?? "—"}</b> emitida
+              {estado.prescricao.codigo && (
+                <> · código de validação <b>{estado.prescricao.codigo}</b></>
+              )}
+            </div>
+            <div style={{ marginTop: 4 }}>
+              {estado.salvos + estado.jaArquivados} documento(s) no prontuário
+              {estado.jaArquivados > 0 && estado.salvos === 0
+                ? " (recebidos pelo webhook)"
+                : estado.jaArquivados > 0
+                  ? ` (${estado.jaArquivados} pelo webhook)`
+                  : ""}
+              {estado.falhas > 0 && ` · ${estado.falhas} com falha (verifique a lista)`}.
+            </div>
             <div style={{ marginTop: 10 }}>
               <button type="button" className="mevo-start-btn" onClick={() => setEstado({ kind: "ocioso" })}>
                 Emitir outra prescrição
@@ -348,7 +391,7 @@ export default function MevoPrescricaoCard({
           </div>
         ) : (
           prescricoes.map((p) => {
-            const n = docCounts[p.id] ?? 0;
+            const n = docs.filter((d) => d.prescricao_id === p.id).length;
             return (
               <div className="doc-emitted" key={p.id}>
                 <div className="doc-emitted-ic receita">
@@ -356,7 +399,7 @@ export default function MevoPrescricaoCard({
                 </div>
                 <div className="doc-emitted-info">
                   <div className="doc-emitted-title">
-                    {p.mevo_token ? `Token: ${p.mevo_token}` : "Prescrição"}
+                    Prescrição nº {p.mevo_id_prescricao ?? "—"}
                     {p.ambiente === "homologacao" && (
                       <span style={{ marginLeft: 6, fontSize: 9, color: "var(--txt3)" }}>
                         [HOMOLOG]
@@ -365,9 +408,12 @@ export default function MevoPrescricaoCard({
                   </div>
                   <div className="doc-emitted-meta">
                     <span>{STATUS_LABEL[p.status] ?? p.status}</span>
-                    {p.codigo_validacao && <span>· Código: {p.codigo_validacao}</span>}
+                    {p.codigo_validacao && <span>· Código de validação: {p.codigo_validacao}</span>}
                     {(p.finalizada_em || p.created_at) && (
                       <span>· {fmtData(p.finalizada_em ?? p.created_at)}</span>
+                    )}
+                    {p.webhook_recebido_em && (
+                      <span className="mevo-webhook-ok">· webhook ✓ {fmtHora(p.webhook_recebido_em)}</span>
                     )}
                   </div>
                 </div>
@@ -377,7 +423,7 @@ export default function MevoPrescricaoCard({
                       type="button"
                       className="doc-emitted-btn"
                       title="Reabrir / terminar mais tarde"
-                      onClick={() => handleReabrir(p.id)}
+                      onClick={() => handleReabrir(p)}
                     >
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
                     </button>
@@ -394,9 +440,22 @@ export default function MevoPrescricaoCard({
                   )}
                   <button
                     type="button"
+                    className="doc-emitted-btn"
+                    title="Copiar idPrescricao e código de validação"
+                    onClick={() => copiarIdentificacao(p)}
+                  >
+                    {copiado === p.id ? (
+                      <span style={{ fontSize: 10 }}>✓</span>
+                    ) : (
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    )}
+                  </button>
+                  <button
+                    type="button"
                     className="doc-emitted-btn doc-emitted-btn-wide"
-                    title={n > 0 ? `Baixar ${n} PDF(s)` : "Baixar PDFs"}
-                    onClick={() => baixarPdfs(p.id)}
+                    title={n > 0 ? `Ver ${n} PDF(s) arquivado(s)` : "Nenhum PDF arquivado ainda"}
+                    onClick={() => setViewer(p)}
+                    disabled={n === 0}
                   >
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                     {n > 0 && <span style={{ fontSize: 10 }}>{n}</span>}
@@ -414,10 +473,24 @@ export default function MevoPrescricaoCard({
         )}
 
         <div style={{ marginTop: 6, fontSize: 10, color: "var(--txt3)", lineHeight: 1.5, padding: "0 2px" }}>
-          Assinatura digital obrigatória (ICP-Brasil) · PDFs arquivados em até
-          10min após emissão · CFM 1.821/2007
+          Assinatura digital obrigatória (ICP-Brasil) · PDFs baixados no
+          recebimento e arquivados no prontuário · CFM 1.821/2007
         </div>
       </div>
+
+      {viewer && (
+        <MevoDocumentosViewer
+          titulo={`Prescrição nº ${viewer.mevo_id_prescricao ?? "—"}`}
+          subtitulo={
+            viewer.codigo_validacao
+              ? `Código de validação ${viewer.codigo_validacao} · PDF arquivado no prontuário`
+              : "PDF arquivado no prontuário"
+          }
+          documentos={docs.filter((d) => d.prescricao_id === viewer.id)}
+          idPrescricao={viewer.mevo_id_prescricao}
+          onClose={() => setViewer(null)}
+        />
+      )}
 
       {/* ─── Modal QR Code ─────────────────────────────────────── */}
       {qrUrl && (
